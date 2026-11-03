@@ -1,0 +1,41 @@
+# Build output
+/dist/
+/build/
+/build-*/
+/out/
+
+# Temporary emsdk cache and local tools
+/.emsdk/
+/.cache/
+
+# Native / editor noise
+node_modules/
+npm-debug.log*
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Never commit Nintendo content
+*.nds
+*.gba
+*.sav
+*.dsv
+*.bin
+*.rom
+*.firmware
+firmware.bin
+bios7.bin
+bios9.bin
+bios7.firm
+bios9.firm
+nand.bin
+*.srl
+
+# Superpowers scratch (ledger, briefs, review packages)
+/.superpowers/
+
+# Test artifacts
+/tests/artifacts/
+/coverage/
