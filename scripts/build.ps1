@@ -26,8 +26,26 @@ switch ($target) {
         "-sALLOW_MEMORY_GROWTH=1"
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
+  "core" {
+    docker run --rm `
+      -v "${root}:/src" `
+      -w /src `
+      $image `
+      bash scripts/build-core.sh
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
+  "core-test" {
+    docker run --rm `
+      -v "${root}:/src" `
+      -w /src `
+      $image `
+      bash -lc "bash scripts/build-core.sh && bash scripts/verify-core.sh"
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    node (Join-Path $root "tests/run-phase1.mjs")
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
   default {
-    Write-Error "Unknown target: $target (available: hello)"
+    Write-Error "Unknown target: $target (available: hello, core, core-test)"
     exit 2
   }
 }

@@ -1,0 +1,17 @@
+diff --git a/cmake/ConfigureFeatures.cmake b/cmake/ConfigureFeatures.cmake
+index 0cff7ea8..a13af41b 100644
+--- a/cmake/ConfigureFeatures.cmake
++++ b/cmake/ConfigureFeatures.cmake
+@@ -141,8 +141,10 @@ if (ENABLE_NETWORKING)
+ endif ()
+ 
+ check_symbol_exists(strlcpy "bsd/string.h;string.h" HAVE_STRL)
+-check_symbol_exists(mmap "sys/mman.h" HAVE_MMAP)
+-check_include_file("sys/mman.h" HAVE_MMAN)
++if (NOT "${CMAKE_SYSTEM_NAME}" STREQUAL "Emscripten")
++    check_symbol_exists(mmap "sys/mman.h" HAVE_MMAP)
++    check_include_file("sys/mman.h" HAVE_MMAN)
++endif()
+ 
+ if (ENABLE_DYNAMIC)
+     get_cmake_property(HAVE_DYNAMIC TARGET_SUPPORTS_SHARED_LIBS)

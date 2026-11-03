@@ -26,8 +26,23 @@ case "$TARGET" in
         -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
         -sALLOW_MEMORY_GROWTH=1
     ;;
+  core)
+    docker run --rm \
+      -v "$ROOT:/src" \
+      -w /src \
+      "$IMAGE" \
+      bash scripts/build-core.sh
+    ;;
+  core-test)
+    docker run --rm \
+      -v "$ROOT:/src" \
+      -w /src \
+      "$IMAGE" \
+      bash -lc "bash scripts/build-core.sh && bash scripts/verify-core.sh"
+    node "$ROOT/tests/run-phase1.mjs"
+    ;;
   *)
-    echo "Unknown target: $TARGET (available: hello)" >&2
+    echo "Unknown target: $TARGET (available: hello, core, core-test)" >&2
     exit 2
     ;;
 esac

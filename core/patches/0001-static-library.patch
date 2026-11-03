@@ -1,0 +1,42 @@
+diff --git a/src/libretro/CMakeLists.txt b/src/libretro/CMakeLists.txt
+index d8b10620..de2a7c8e 100644
+--- a/src/libretro/CMakeLists.txt
++++ b/src/libretro/CMakeLists.txt
+@@ -3,7 +3,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ 
+ include(embed-binaries)
+ 
+-if (BUILD_AS_SHARED_LIBRARY)
++option(MELONDSDS_STATIC "Build melonDS DS as a static library for embedding in a host." OFF)
++
++if (MELONDSDS_STATIC)
++    set(LIBRARY_TYPE STATIC)
++elseif (BUILD_AS_SHARED_LIBRARY)
+     set(LIBRARY_TYPE SHARED)
+ else ()
+     set(LIBRARY_TYPE MODULE)
+@@ -263,14 +267,16 @@ endif ()
+ set_target_properties(melondsds_libretro PROPERTIES PREFIX "")
+ 
+ # Some platforms or compilers don't use the expected suffixes for shared libraries
+-if (APPLE)
+-    set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".dylib")
+-elseif(ANDROID)
+-    set_target_properties(melondsds_libretro PROPERTIES SUFFIX "_android.so")
+-elseif (UNIX)
+-    set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".so")
+-elseif (WIN32)
+-    set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".dll")
++if (NOT MELONDSDS_STATIC)
++    if (APPLE)
++        set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".dylib")
++    elseif(ANDROID)
++        set_target_properties(melondsds_libretro PROPERTIES SUFFIX "_android.so")
++    elseif (UNIX)
++        set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".so")
++    elseif (WIN32)
++        set_target_properties(melondsds_libretro PROPERTIES SUFFIX ".dll")
++    endif()
+ endif ()
+ 
+ if (WIN32 AND MINGW)
