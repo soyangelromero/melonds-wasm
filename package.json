@@ -1,0 +1,13 @@
+{
+  "name": "melonds-wasm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "melonDS DS v1.4.0 ported to WebAssembly with a minimal libretro host",
+  "license": "GPL-3.0",
+  "scripts": {
+    "build": "node -e \"console.error('Use scripts/build.ps1 (Windows) or scripts/build.sh (POSIX)')\" && exit 1",
+    "serve": "node scripts/serve.mjs",
+    "test": "node --test tests/"
+  }
+}

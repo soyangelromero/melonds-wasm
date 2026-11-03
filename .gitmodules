@@ -1,0 +1,3 @@
+[submodule "third_party/melonds-ds"]
+	path = third_party/melonds-ds
+	url = https://github.com/JesseTG/melonds-ds.git
