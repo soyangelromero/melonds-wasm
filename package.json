@@ -13,6 +13,8 @@
     "serve": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
-    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds"
+    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds",
+    "test:saves": "node --test tests/phase6-saves.mjs",
+    "test:saves-browser": "node tests/phase6-browser.mjs"
   }
 }
