@@ -1,9 +1,11 @@
 import { VideoPlayer, SCANLINES, LAYOUT_LABELS } from "../js/player.js";
+import { BUTTON_MASK } from "../js/input.js";
 
 const $ = (id) => document.getElementById(id);
 const canvas = $("screen"), msg = $("msg");
 const params = new URLSearchParams(location.search);
 let player = null;
+let detachInput = [];   // Phase 5: keyboard / gamepad / pointer listeners of the current player
 
 $("s-coi").textContent = String(self.crossOriginIsolated);
 for (const label of LAYOUT_LABELS) $("layout").add(new Option(label, label));
@@ -15,6 +17,7 @@ if (!self.crossOriginIsolated) say("Esta página no está aislada (COOP/COEP). S
 
 async function loadRom(file) {
   say("Cargando…");
+  detachInput.forEach((f) => f()); detachInput = [];
   if (player) { await player.dispose(); player = null; }
   const rom = new Uint8Array(await file.arrayBuffer()); // stays in this tab: no upload, no network
   try {
@@ -29,6 +32,7 @@ async function loadRom(file) {
     applyFilter(); player.setScaling({ integer: $("integer").checked, smooth: $("smooth").checked });
     player.setSpeed(+$("speed").value);
     await player.loadRom(rom);
+    detachInput = [player.attachKeyboard(), player.attachGamepad(), player.attachPointer()]; // arrows/Space no longer scroll
     player.start();
     $("pause").disabled = $("shot").disabled = false;
     say("");
@@ -45,6 +49,8 @@ function applyFilter() {
 }
 
 $("rom").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) loadRom(f); });
+// Controls keep focus after a change; blur them so the arrow keys / Space go to the game, not to the <select>.
+for (const el of document.querySelectorAll("aside select")) el.addEventListener("change", () => el.blur());
 $("layout").addEventListener("change", () => player?.setLayout($("layout").value));
 $("gap").addEventListener("input", () => { $("gapOut").textContent = $("gap").value; player?.setScreenGap(+$("gap").value); });
 $("hybrid").addEventListener("change", () => player?.setHybridSmallScreen($("hybrid").value));
@@ -69,6 +75,8 @@ setInterval(() => {
   $("s-draw").textContent = `${s.drawFps.toFixed(1)} fps · ${s.drawnFrames} dibujados`;
   $("s-ring").textContent = `publicados ${s.ring.published} · consumidos ${s.ring.consumed} · descartados ${s.ring.dropped}`;
   $("s-workers").textContent = String(s.workers);
+  const p = player.input.pointer, names = Object.entries(BUTTON_MASK).filter(([, m]) => (player.input.mask & m) === m).map(([n]) => n);
+  $("s-input").textContent = `${names.join("+") || "—"} · puntero ${p.pressed ? "PULSADO" : "libre"} (${p.x}, ${p.y})`;
 }, 500);
 
 // Test hook (read-only helpers for tests/phase3-browser.mjs).

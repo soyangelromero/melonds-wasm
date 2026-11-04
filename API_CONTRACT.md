@@ -184,6 +184,8 @@ Teclas por defecto: flechas = cruceta, `Z`=A, `X`=B, `A`=X, `S`=Y, `Q`=L, `E`=R,
 (deben coincidir con la pestaña "Controles" de la web app).
 Los eventos de teclado **no** deben dejar que la página haga scroll con las flechas/espacio mientras se juega.
 
+**Fase 5 (implementado en `js/input.js`; detalles en `tests/PHASE5_REPORT.md`):** las teclas se identifican por `KeyboardEvent.code` (posición física; el mapa personalizado también acepta `event.key`); el mando usa la Gamepad API con mapeo `standard`; `LID` = L2+Y del núcleo (alterna la tapa) y se añade `MIC` = L3 como extensión del tipo `Button`; `attachPointer(canvas)` (ratón/táctil/lápiz con Pointer Events) es el complemento DOM de `touchFromCanvas`.
+
 ## 6. Guardado y estados
 
 - `getSave()` devuelve los bytes **exactos** que escribiría melonDS escritorio en un `.sav` (compatibles con
@@ -252,7 +254,7 @@ mds_run_frame()                     // un fotograma; usado por el bucle del work
 mds_get_frame(unsigned *width, unsigned *height, size_t *stride) -> const void* // fotograma compuesto XRGB8888; válido hasta el siguiente mds_run_frame
 mds_copy_frame(void *dst, size_t dst_len, unsigned *width, unsigned *height, size_t *stride) -> size_t
 mds_get_audio(ptr,max_samples) -> n // PCM estéreo 16 bit @ 32768 Hz
-mds_set_key_mask(mask) / mds_set_pointer(nx,ny,pressed) // nx,ny normalizados -32767..32767 en el espacio del fotograma; el núcleo resuelve el layout
+mds_set_key_mask(mask) / mds_set_pointer(nx,ny,pressed) / mds_get_input_queries() // REAL (Fase 5): mask = bit i ↔ RETRO_DEVICE_ID_JOYPAD_i (B=0 … R=11, L2=12, L3=14); nx,ny normalizados -32767..32767 en el espacio del fotograma MOSTRADO (ya girado), (0,0) sin pulsar = puntero ausente; el núcleo resuelve layout, hueco, híbrido y rotación; queries = diagnóstico de lo que el núcleo pide
 mds_get_save(ptr_out,len_out) / mds_set_save(ptr,len)
 mds_save_state(ptr_out,len_out) / mds_load_state(ptr,len)
 mds_cheat_set(id,enabled,ptr,len) / mds_cheat_clear()

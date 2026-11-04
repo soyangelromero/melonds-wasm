@@ -59,6 +59,11 @@ Elige un `.nds` propio con el selector (no se sube a ningún sitio): layouts, se
 (`bash scripts/build-core.sh && bash scripts/build-host.sh`) y un navegador con Wasm EH y `SharedArrayBuffer` (Chrome/Edge/Firefox recientes).
 Pruebas en Chromium sin interfaz: `npm run test:browser` (ver `tests/PHASE3_REPORT.md`).
 
+## Entrada (Fase 5)
+
+En la demo: flechas = cruceta · `Z`=A · `X`=B · `A`=X · `S`=Y · `Q`=L · `E`=R · `Enter`=Start · `V`=Select; mando estándar (botón derecho=A, inferior=B, superior=X, izquierdo=Y, LB/RB, Back/Start, cruceta o palanca izquierda); ratón/táctil sobre la imagen = pantalla táctil, en cualquier layout.
+Pruebas: `npm test` (unitarias, incluye `tests/touch.test.mjs` y `tests/input.test.mjs`) y `npm run test:input` (núcleo real en Node + Chromium sin interfaz). Ver `tests/PHASE5_REPORT.md`.
+
 ## Estado
 
 Fases 0-3 hechas: el núcleo corre en Wasm, el fotograma compuesto se dibuja en un canvas. Sin audio, entrada ni guardado todavía.

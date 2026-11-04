@@ -1,6 +1,6 @@
 // Minimal libretro frontend for the melonDS DS core, exposed as the mds_* C API (API_CONTRACT.md section 8).
 // Phase 2: create / load / run / frame. Phase 3: geometry (SET_GEOMETRY / SET_SYSTEM_AV_INFO), rotation (SET_ROTATION)
-// and frame serials. Audio, input and saves are neutral stubs (TODO phase 4-6).
+// and frame serials. Audio and saves are neutral stubs (TODO phase 4, 6); input is Phase 5.
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -203,9 +203,46 @@ size_t audioBatchCb(const int16_t *, size_t frames) {
 }
 void audioCb(int16_t, int16_t) { ++H.audioFrames; }
 
-// TODO(phase 5): feed the key mask / pointer from mds_set_key_mask / mds_set_pointer.
+// Phase 5 input. The core (input/input.cpp, joypad.cpp, pointer.cpp) polls: RETRO_DEVICE_ID_JOYPAD_MASK (we answer true to
+// GET_INPUT_BITMASKS; ids 0..15 one by one otherwise), RETRO_DEVICE_POINTER X / Y / PRESSED, and RETRO_DEVICE_ANALOG (right
+// stick; the joystick-cursor mode, not fed here). Pointer coordinates are in the space of the frame as DISPLAYED, i.e. after
+// the frontend rotation: the core rotates them itself (screenlayout.cpp:319, pointerMatrix = ts * rotate).
+struct InputBox {
+  uint32_t keyMask = 0;     // bit i = RETRO_DEVICE_ID_JOYPAD_i (B=0 Y=1 SELECT=2 START=3 UP=4 DOWN=5 LEFT=6 RIGHT=7 A=8 X=9 L=10 R=11 L2=12 R2=13 L3=14 R3=15)
+  int16_t px = 0, py = 0;   // -32767..32767; (0,0) means "pointer not over the play area" to the core
+  bool pressed = false;
+  uint32_t queried = 0;     // MDS_INPUT_Q_* flags: what the core really asked for (diagnostics)
+};
+InputBox IN;
+enum : uint32_t { MDS_INPUT_Q_MASK = 1, MDS_INPUT_Q_JOYPAD_ID = 2, MDS_INPUT_Q_POINTER = 4, MDS_INPUT_Q_ANALOG = 8 };
+
 void inputPollCb() {}
-int16_t inputStateCb(unsigned, unsigned, unsigned, unsigned) { return 0; }
+int16_t inputStateCb(unsigned port, unsigned device, unsigned index, unsigned id) {
+  if (port != 0) return 0;
+  switch (device & RETRO_DEVICE_MASK) {
+    case RETRO_DEVICE_JOYPAD:
+      if (id == RETRO_DEVICE_ID_JOYPAD_MASK) {
+        IN.queried |= MDS_INPUT_Q_MASK;
+        return static_cast<int16_t>(IN.keyMask & 0xFFFF);
+      }
+      IN.queried |= MDS_INPUT_Q_JOYPAD_ID;
+      return id < 16 ? static_cast<int16_t>((IN.keyMask >> id) & 1u) : 0;
+    case RETRO_DEVICE_POINTER:
+      if (index != 0) return 0;
+      IN.queried |= MDS_INPUT_Q_POINTER;
+      switch (id) {
+        case RETRO_DEVICE_ID_POINTER_X: return IN.px;
+        case RETRO_DEVICE_ID_POINTER_Y: return IN.py;
+        case RETRO_DEVICE_ID_POINTER_PRESSED: return IN.pressed ? 1 : 0;
+        default: return 0;
+      }
+    case RETRO_DEVICE_ANALOG:
+      IN.queried |= MDS_INPUT_Q_ANALOG;
+      return 0;
+    default:
+      return 0;
+  }
+}
 
 }  // namespace
 
@@ -236,6 +273,7 @@ EMSCRIPTEN_KEEPALIVE void mds_destroy() {
   if (H.loaded) retro_unload_game();
   retro_deinit();
   H = Host{};
+  IN = InputBox{};
 }
 
 // Set options before mds_load_rom so they apply at boot; later changes are picked up through GET_VARIABLE_UPDATE.
@@ -323,5 +361,20 @@ EMSCRIPTEN_KEEPALIVE double mds_get_sample_rate() { return H.sampleRate; }
 
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_frame_count() { return H.frameCount; }
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_duplicated_frames() { return H.duplicatedFrames; }
+
+// Phase 5 input (API_CONTRACT.md section 8). Takes effect at the next mds_run_frame.
+// mask: bit i = RETRO_DEVICE_ID_JOYPAD_i (same numbering as the online-room indices of section 5 for bits 0..11).
+EMSCRIPTEN_KEEPALIVE void mds_set_key_mask(uint32_t mask) { IN.keyMask = mask & 0xFFFFu; }
+// nx, ny: -32767..32767 over the frame as displayed (after rotation). (0, 0) with pressed = 0 = pointer away from the screen.
+EMSCRIPTEN_KEEPALIVE void mds_set_pointer(int nx, int ny, int pressed) {
+  auto clamp = [](int v) { return static_cast<int16_t>(v < -32767 ? -32767 : v > 32767 ? 32767 : v); };
+  IN.px = clamp(nx);
+  IN.py = clamp(ny);
+  // The core treats a raw (0, 0) as "off screen" (cursor hidden); a real touch at the exact centre is nudged by 1/32767.
+  if (pressed && IN.px == 0 && IN.py == 0) IN.px = 1;
+  IN.pressed = pressed != 0;
+}
+// Diagnostics: MDS_INPUT_Q_* flags of what the core asked the frontend for since mds_create.
+EMSCRIPTEN_KEEPALIVE uint32_t mds_get_input_queries() { return IN.queried; }
 
 }  // extern "C"

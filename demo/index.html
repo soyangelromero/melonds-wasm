@@ -64,7 +64,11 @@
         <button id="pause" disabled>Pausa</button>
         <button id="shot" disabled>Captura PNG</button>
       </fieldset>
-      <p style="color:#9da7b3">Audio, entrada y guardado: aún no (fases 4-6).</p>
+      <fieldset>
+        <legend>Controles</legend>
+        <small style="color:#9da7b3">Flechas = cruceta · Z=A · X=B · A=X · S=Y · Q=L · E=R · Enter=Start · V=Select. Mando estándar: botón derecho=A, inferior=B, superior=X, izquierdo=Y, LB/RB=L/R, Back/Start, cruceta o palanca izquierda. Ratón/táctil sobre la imagen = pantalla táctil.</small>
+      </fieldset>
+      <p style="color:#9da7b3">Audio y guardado: aún no (fases 4 y 6).</p>
     </aside>
     <main>
       <div id="stage"><canvas id="screen" width="256" height="384"></canvas></div>
@@ -76,6 +80,7 @@
         <dt>Emulador</dt><dd id="s-emu">—</dd>
         <dt>Dibujado</dt><dd id="s-draw">—</dd>
         <dt>Buffer circular</dt><dd id="s-ring">—</dd>
+        <dt>Entrada</dt><dd id="s-input">—</dd>
         <dt>Hilos 3D (workers pthread)</dt><dd id="s-workers">—</dd>
       </dl>
     </main>

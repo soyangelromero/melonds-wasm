@@ -13,6 +13,7 @@
     "serve": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
+    "test:input": "node tests/phase5-core.mjs tests/artifacts/nmap.nds && node tests/phase5-browser.mjs tests/artifacts/nmap.nds",
     "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds"
   }
 }
