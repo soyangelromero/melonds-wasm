@@ -18,7 +18,8 @@
       textarea { height: 7rem; font: .75rem ui-monospace, monospace; background: #0d0f12; color: #cfd6e0; border: 1px solid #2b2f37; }
       button { padding: .35rem; margin-top: .3rem; }
       main { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
-      #stage { display: grid; place-items: center; background: #050505; min-height: 60vh; overflow: hidden; }
+      /* canvas pinned to the top: with `center`, any change in the height of the stats list below (a wrapped audio line) moved the canvas by half that amount */
+      #stage { display: grid; place-items: start center; background: #050505; min-height: 60vh; overflow: hidden; }
       #screen { image-rendering: pixelated; background: #000; outline: 1px solid #333; }
       dl { display: grid; grid-template-columns: max-content 1fr; gap: .15rem .8rem; margin: 0; padding: .6rem 1rem; font: .8rem ui-monospace, monospace; border-top: 1px solid #2b2f37; }
       dt { color: #9da7b3; } dd { margin: 0; }

@@ -75,15 +75,15 @@ class MelonDS {
   setMicInput(source: MediaStream | null): void;
 
   // --- guardado ---
-  getSave(): Uint8Array | null;            // bytes crudos (.sav) de la partida en curso
-  loadSave(data: Uint8Array): void;        // aplica y reinicia el cartucho (equivale a loadSaveFiles + restart)
+  getSave(): Uint8Array | null;            // bytes crudos (.sav) de la partida en curso. REAL (Fase 6): `player.saves.getSave()` devuelve la última copia en caché (≤ ~170 ms de retraso); `await player.saves.getSaveNow()` es exacto
+  loadSave(data: Uint8Array): void;        // aplica y reinicia el cartucho (equivale a loadSaveFiles + restart). REAL: `player.saves.loadSave()` → Promise<{resized}>
   onSave(cb: (bytes: Uint8Array) => void, debounceMs?: number): () => void; // se llama cuando la SRAM cambió y se estabilizó
-  saveState(): Uint8Array;                 // formato propio versionado con SRAM y CRC (ver sección 6)
-  loadState(data: Uint8Array): void;
+  saveState(): Uint8Array;                 // formato propio versionado con SRAM y CRC (ver sección 6). REAL (Fase 6): `player.saves.saveState()` → Promise<Uint8Array>
+  loadState(data: Uint8Array): void;       // REAL: `player.saves.loadState(data)` → Promise<void>; rechaza con STATE_VERSION / STATE_INCOMPATIBLE / STATE_CORRUPT / STATE_UNSUPPORTED / NO_ROM
 
   // --- trucos (Action Replay) ---
-  setCheat(id: number, enabled: boolean, code: string): void; // ver sección 4; `id` es estable (el anfitrión lo traduce a una ranura del núcleo)
-  clearCheats(): void;
+  setCheat(id: number, enabled: boolean, code: string): void; // ver sección 4; `id` es estable (el anfitrión lo traduce a una ranura del núcleo). REAL (integración): `VideoPlayer.setCheat` → Promise<void>; rechaza con Error.code CHEAT_* (BAD_TOKEN, ODD_WORDS, EMPTY, NO_ROM…); con `code` vacío y un id conocido solo cambia `enabled`
+  clearCheats(): void;                     // REAL: Promise<void>
 
   // --- estadísticas ---
   getStats(): { fps: number; emuMs: number; renderMs: number; audioBufferMs: number; threads: boolean };
