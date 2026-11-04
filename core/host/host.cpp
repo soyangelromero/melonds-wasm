@@ -1,6 +1,6 @@
 // Minimal libretro frontend for the melonDS DS core, exposed as the mds_* C API (API_CONTRACT.md section 8).
 // Phase 2: create / load / run / frame. Phase 3: geometry (SET_GEOMETRY / SET_SYSTEM_AV_INFO), rotation (SET_ROTATION)
-// and frame serials. Audio, input and saves are neutral stubs (TODO phase 4-6).
+// and frame serials. Phase 4: audio ring (mds_get_audio). Input and saves are neutral stubs (TODO phase 5-6).
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +19,9 @@ namespace {
 
 constexpr const char *kSystemDir = "/system";
 constexpr const char *kSaveDir = "/save";
+// 8192 stereo frames = 250 ms at 32.7 kHz = ~15 DS frames of slack for an embedder that drains once per frame
+// (one DS frame is ~547 frames, the core never delivers more than 2048 per retro_run: core.cpp RenderAudio).
+constexpr size_t kAudioRingFrames = 8192;
 
 // What the core last told us about its video output (retro_game_geometry + timing). The *frame* size
 // that actually arrives in videoCb is authoritative; this is what the core announces it will deliver.
@@ -42,7 +45,16 @@ struct Host {
   uint32_t frameSerial = 0;     // bumped on every videoCb with data != NULL (a new, different-or-equal frame)
   uint64_t frameCount = 0;
   uint64_t duplicatedFrames = 0;
-  uint64_t audioFrames = 0;
+  // Audio (phase 4). Stereo int16 frames (L,R pairs) in a power-of-two ring; the core writes during retro_run and the
+  // embedder drains it with mds_get_audio after each mds_run_frame. Single thread (the wasm module lives in one worker),
+  // so no atomics are needed here; the cross-thread ring is js/audio-ring.js.
+  std::vector<int16_t> audio = std::vector<int16_t>(kAudioRingFrames * 2);
+  size_t audioRead = 0, audioWrite = 0;  // monotonic frame counters; fill = write - read
+  uint64_t audioFrames = 0;       // frames produced by the core
+  uint64_t audioDrained = 0;      // frames handed out by mds_get_audio
+  uint64_t audioOverruns = 0;     // frames DROPPED because the ring was full (nobody drained it)
+  uint64_t audioUnderruns = 0;    // mds_get_audio calls that found fewer frames than requested
+  uint64_t audioBatches = 0, audioSingles = 0;
   std::vector<std::string> unhandled;
   std::string romPath;
   bool created = false;
@@ -196,12 +208,34 @@ void videoCb(const void *data, unsigned width, unsigned height, size_t pitch) {
   ++H.frameSerial;
 }
 
-// TODO(phase 4): push samples into a ring buffer for mds_get_audio.
-size_t audioBatchCb(const int16_t *, size_t frames) {
+// Appends `frames` stereo frames to the audio ring. If it is full the NEWEST frames are dropped and counted
+// (the oldest are already promised to the reader, and the writer must never touch the read position).
+void pushAudio(const int16_t *data, size_t frames) {
   H.audioFrames += frames;
+  const size_t mask = kAudioRingFrames - 1;
+  size_t room = kAudioRingFrames - (H.audioWrite - H.audioRead);
+  size_t n = frames < room ? frames : room;
+  H.audioOverruns += frames - n;
+  for (size_t i = 0; i < n; ++i) {
+    const size_t slot = ((H.audioWrite + i) & mask) * 2;
+    H.audio[slot] = data[i * 2];
+    H.audio[slot + 1] = data[i * 2 + 1];
+  }
+  H.audioWrite += n;
+}
+
+// The core only uses the batch callback (environment.cpp:145, core.cpp:380 RenderAudio); retro_set_audio_sample is a
+// no-op there (environment.cpp:940). The single-sample callback is implemented anyway as libretro requires it.
+size_t audioBatchCb(const int16_t *data, size_t frames) {
+  ++H.audioBatches;
+  pushAudio(data, frames);
   return frames;
 }
-void audioCb(int16_t, int16_t) { ++H.audioFrames; }
+void audioCb(int16_t left, int16_t right) {
+  ++H.audioSingles;
+  const int16_t pair[2] = {left, right};
+  pushAudio(pair, 1);
+}
 
 // TODO(phase 5): feed the key mask / pointer from mds_set_key_mask / mds_set_pointer.
 void inputPollCb() {}
@@ -320,6 +354,33 @@ EMSCRIPTEN_KEEPALIVE void mds_get_geometry(unsigned *baseW, unsigned *baseH, uns
 }
 EMSCRIPTEN_KEEPALIVE double mds_get_fps() { return H.fps; }
 EMSCRIPTEN_KEEPALIVE double mds_get_sample_rate() { return H.sampleRate; }
+
+// ---- audio (phase 4) ----
+// PCM: interleaved stereo int16 (L,R). Units are STEREO FRAMES (one L,R pair), not individual int16 values.
+// The rate is mds_get_sample_rate() = 33513982/1024 = 32728.498 Hz (config/constants.hpp SAMPLE_RATE), NOT 32768.
+// Copies up to max_frames frames into dst and returns how many were copied.
+EMSCRIPTEN_KEEPALIVE size_t mds_get_audio(int16_t *dst, size_t max_frames) {
+  const size_t avail = H.audioWrite - H.audioRead;
+  const size_t n = max_frames < avail ? max_frames : avail;
+  if (n < max_frames) ++H.audioUnderruns;
+  const size_t mask = kAudioRingFrames - 1;
+  for (size_t i = 0; i < n; ++i) {
+    const size_t slot = ((H.audioRead + i) & mask) * 2;
+    dst[i * 2] = H.audio[slot];
+    dst[i * 2 + 1] = H.audio[slot + 1];
+  }
+  H.audioRead += n;
+  H.audioDrained += n;
+  return n;
+}
+EMSCRIPTEN_KEEPALIVE size_t mds_get_audio_available() { return H.audioWrite - H.audioRead; }
+// Drops everything pending (used when the embedder was not consuming, e.g. before the AudioContext exists).
+EMSCRIPTEN_KEEPALIVE void mds_flush_audio() { H.audioRead = H.audioWrite; }
+EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_frames_total() { return H.audioFrames; }
+EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_overruns() { return H.audioOverruns; }
+EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_underruns() { return H.audioUnderruns; }
+EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_batches() { return H.audioBatches; }
+EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_singles() { return H.audioSingles; }
 
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_frame_count() { return H.frameCount; }
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_duplicated_frames() { return H.duplicatedFrames; }
