@@ -1,0 +1,13 @@
+diff --git a/src/libretro/CMakeLists.txt b/src/libretro/CMakeLists.txt
+index d8b10620..b493c125 100644
+--- a/src/libretro/CMakeLists.txt
++++ b/src/libretro/CMakeLists.txt
+@@ -145,6 +145,8 @@ target_include_directories(melondsds_libretro SYSTEM PUBLIC
+     )
+ 
+ target_include_directories(melondsds_libretro PRIVATE "${CMAKE_SOURCE_DIR}/src/libretro")
++# Headers such as Net_PCap.h are included unconditionally by the core.
++target_include_directories(melondsds_libretro SYSTEM PRIVATE "${melonDS_SOURCE_DIR}/src/net")
+ 
+ embed_binaries(libretro-assets
+     ASSET

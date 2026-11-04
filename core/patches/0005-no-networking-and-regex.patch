@@ -1,0 +1,28 @@
+diff --git a/src/libretro/core/core.cpp b/src/libretro/core/core.cpp
+index df32f077..9a6bef28 100644
+--- a/src/libretro/core/core.cpp
++++ b/src/libretro/core/core.cpp
+@@ -1238,7 +1238,7 @@ void MelonDsDs::CoreState::CheatSet(unsigned index, bool enabled, std::string_vi
+ 
+     // NDS cheats are sequence of unsigned 32-bit integers, each of which is hex-encoded
+     auto end = std::cregex_iterator();
+-    for (auto i = std::cregex_iterator(code.cbegin(), code.cend(), _tokenSyntax); i != end; ++i) {
++    for (auto i = std::cregex_iterator(code.data(), code.data() + code.size(), _tokenSyntax); i != end; ++i) {
+         const std::csub_match& match = (*i)[0];
+         retro_assert(match.matched);
+         uint32_t token = 0;
+diff --git a/src/libretro/net/net.hpp b/src/libretro/net/net.hpp
+index e61880e2..2260397e 100644
+--- a/src/libretro/net/net.hpp
++++ b/src/libretro/net/net.hpp
+@@ -19,9 +19,7 @@
+ #include <memory>
+ #include <optional>
+ 
+-#ifdef HAVE_NETWORKING_DIRECT_MODE
+-#include <Net_PCap.h>
+-#endif
++#include <Net_PCap.h> // defines melonDS::AdapterData, which NetState uses unconditionally
+ 
+ #include "Net.h"
+ #include "config/types.hpp"

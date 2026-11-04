@@ -1,0 +1,84 @@
+diff --git a/src/libretro/CMakeLists.txt b/src/libretro/CMakeLists.txt
+index c39116d3..9e023245 100644
+--- a/src/libretro/CMakeLists.txt
++++ b/src/libretro/CMakeLists.txt
+@@ -188,17 +188,22 @@ if (ENABLE_THREADED_RENDERER)
+     target_compile_definitions(melondsds_libretro PUBLIC ENABLE_THREADED_RENDERER HAVE_THREADED_RENDERER)
+ endif ()
+ 
++# NetState (src/libretro/net/net.cpp) is compiled unconditionally and needs melonDS::Net,
++# even when networking is disabled; only the libslirp driver is optional.
++target_sources(melondsds_libretro PRIVATE
++    ${melonDS_SOURCE_DIR}/src/net/Net.cpp
++    ${melonDS_SOURCE_DIR}/src/net/Net.h
++    ${melonDS_SOURCE_DIR}/src/net/NetDriver.h
++    ${melonDS_SOURCE_DIR}/src/net/LocalMP.cpp
++    ${melonDS_SOURCE_DIR}/src/net/LocalMP.h
++    ${melonDS_SOURCE_DIR}/src/net/PacketDispatcher.cpp
++    ${melonDS_SOURCE_DIR}/src/net/PacketDispatcher.h
++)
++
+ if (HAVE_NETWORKING)
+     target_sources(melondsds_libretro PRIVATE
+         ${melonDS_SOURCE_DIR}/src/net/Net_Slirp.cpp
+         ${melonDS_SOURCE_DIR}/src/net/Net_Slirp.h
+-        ${melonDS_SOURCE_DIR}/src/net/Net.cpp
+-        ${melonDS_SOURCE_DIR}/src/net/Net.h
+-        ${melonDS_SOURCE_DIR}/src/net/NetDriver.h
+-        ${melonDS_SOURCE_DIR}/src/net/LocalMP.cpp
+-        ${melonDS_SOURCE_DIR}/src/net/LocalMP.h
+-        ${melonDS_SOURCE_DIR}/src/net/PacketDispatcher.cpp
+-        ${melonDS_SOURCE_DIR}/src/net/PacketDispatcher.h
+         platform/lan.cpp
+     )
+ 
+diff --git a/src/libretro/net/net.cpp b/src/libretro/net/net.cpp
+index 0bc67e8d..b9bfde31 100644
+--- a/src/libretro/net/net.cpp
++++ b/src/libretro/net/net.cpp
+@@ -18,7 +18,9 @@
+ 
+ #include <string_view>
+ 
++#ifdef HAVE_NETWORKING
+ #include <Net_Slirp.h>
++#endif
+ #include <retro_assert.h>
+ #include <fmt/format.h>
+ #include <fmt/ranges.h>
+@@ -151,6 +153,7 @@ bool operator==(const melonDS::AdapterData& lhs, const melonDS::AdapterData& rhs
+     ;
+ }
+ 
++#ifdef HAVE_NETWORKING
+ void MelonDsDs::NetState::Apply(const CoreConfig& config) noexcept
+ {
+     ZoneScopedN(TracyFunction);
+@@ -248,6 +251,14 @@ void MelonDsDs::NetState::Apply(const CoreConfig& config) noexcept
+     }
+ }
+ 
++#else
++void MelonDsDs::NetState::Apply(const CoreConfig&) noexcept
++{
++    // Networking is compiled out (CoreConfig::NetworkMode does not exist); keep Wi-fi off.
++    _net.SetDriver(nullptr);
++}
++#endif
++
+ [[nodiscard]] MelonDsDs::NetworkMode MelonDsDs::NetState::GetNetworkMode() const noexcept
+ {
+ #ifdef HAVE_NETWORKING_DIRECT_MODE
+@@ -257,10 +268,12 @@ void MelonDsDs::NetState::Apply(const CoreConfig& config) noexcept
+     }
+ #endif
+ 
++#ifdef HAVE_NETWORKING
+     if (dynamic_cast<const Net_Slirp*>(_net.GetDriver().get()))
+     {
+         return NetworkMode::Indirect;
+     }
++#endif
+ 
+     return NetworkMode::None;
+ }

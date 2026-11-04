@@ -24,6 +24,7 @@ em++ core/test/phase1_main.cpp \
   "-sENVIRONMENT=node" \
   "-sALLOW_MEMORY_GROWTH=1" \
   "-sEXIT_RUNTIME=1" \
+  --extern-post-js core/test/phase1_autorun.js \
   -o dist/phase1.js \
   -Wl,--start-group dist/libmelonDS.a $EXTRA_ARCHIVES -Wl,--end-group
 

@@ -1,0 +1,20 @@
+diff --git a/src/libretro/format.cpp b/src/libretro/format.cpp
+index 78ab3247..fbd9f207 100644
+--- a/src/libretro/format.cpp
++++ b/src/libretro/format.cpp
+@@ -81,6 +81,7 @@ auto fmt::formatter<MelonDsDs::FormattedGLEnum>::format(MelonDsDs::FormattedGLEn
+ }
+ #endif
+ 
++#ifdef HAVE_NETWORKING_DIRECT_MODE
+ auto fmt::formatter<MelonDsDs::FormattedPCapFlags>::format(MelonDsDs::FormattedPCapFlags e, format_context& ctx) const -> decltype(ctx.out()) {
+     auto flags = static_cast<uint32_t>(e);
+ 
+@@ -118,6 +119,7 @@ auto fmt::formatter<MelonDsDs::FormattedPCapFlags>::format(MelonDsDs::FormattedP
+ 
+     return formatter<decltype(flagNames)>::format(flagNames, ctx);
+ }
++#endif
+ 
+ auto fmt::formatter<MelonDsDs::BiosType>::format(MelonDsDs::BiosType c, format_context& ctx) const -> decltype(ctx.out()) {
+     string_view name = "unknown";

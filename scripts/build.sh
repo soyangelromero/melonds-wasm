@@ -5,6 +5,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="emscripten/emsdk:6.0.13"
 TARGET="${1:-hello}"
 
+# Without Docker, `core` / `core-test` run directly with a locally activated emsdk
+# (source emsdk_env.sh first). Set USE_DOCKER=1 to force Docker.
+if [[ "${USE_DOCKER:-}" != "1" ]] && ! command -v docker >/dev/null 2>&1 && command -v emcmake >/dev/null 2>&1; then
+  case "$TARGET" in
+    core)
+      exec bash "$ROOT/scripts/build-core.sh" ;;
+    core-test)
+      bash "$ROOT/scripts/build-core.sh" && bash "$ROOT/scripts/verify-core.sh"
+      node "$ROOT/dist/phase1.js"
+      exit $? ;;
+  esac
+fi
+
 case "$TARGET" in
   hello)
     mkdir -p "$ROOT/dist"
