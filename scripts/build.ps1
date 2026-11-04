@@ -44,8 +44,26 @@ switch ($target) {
     node (Join-Path $root "tests/run-phase1.mjs")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   }
+  "host" {
+    docker run --rm `
+      -v "${root}:/src" `
+      -w /src `
+      $image `
+      bash scripts/build-host.sh
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
+  "host-test" {
+    docker run --rm `
+      -v "${root}:/src" `
+      -w /src `
+      $image `
+      bash scripts/build-host.sh
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    node (Join-Path $root "tests/phase2-smoke.mjs")
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+  }
   default {
-    Write-Error "Unknown target: $target (available: hello, core, core-test)"
+    Write-Error "Unknown target: $target (available: hello, core, core-test, host, host-test)"
     exit 2
   }
 }

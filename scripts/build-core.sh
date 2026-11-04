@@ -18,8 +18,8 @@ emcmake cmake -S third_party/melonds-ds -B build/melonds \
   -DCMAKE_BUILD_TYPE=Release \
   -UHAVE_MMAP \
   -UHAVE_MMAN \
-  -DCMAKE_C_FLAGS="-pthread -msimd128 -matomics -mbulk-memory" \
-  -DCMAKE_CXX_FLAGS="-pthread -msimd128 -matomics -mbulk-memory" \
+  -DCMAKE_C_FLAGS="-pthread -msimd128 -matomics -mbulk-memory -fwasm-exceptions" \
+  -DCMAKE_CXX_FLAGS="-pthread -msimd128 -matomics -mbulk-memory -fwasm-exceptions" \
   -DMELONDSDS_STATIC=ON \
   -DMELONDS_REPOSITORY_TAG="$MELONDS_SHA" \
   -DENABLE_JIT=OFF \

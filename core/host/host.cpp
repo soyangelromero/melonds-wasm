@@ -10,6 +10,7 @@
 
 #include <emscripten.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "libretro.h"
 
@@ -57,7 +58,7 @@ void noteUnhandled(unsigned cmd) {
 void storeDefaults(const retro_core_options_v2 *opts) {
   for (const retro_core_option_v2_definition *d = opts->definitions; d && d->key; ++d) {
     const char *def = d->default_value ? d->default_value : d->values[0].value;
-    if (def) H.options[d->key] = def;
+    if (def) H.options.emplace(d->key, def);  // emplace: never overwrite a value set via mds_set_option
   }
 }
 
@@ -108,9 +109,12 @@ bool environmentCb(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_SET_MESSAGE:
       std::fprintf(stderr, "[core MSG] %s\n", static_cast<const retro_message *>(data)->msg);
       return true;
-    case RETRO_ENVIRONMENT_SET_MESSAGE_EXT:
-      std::fprintf(stderr, "[core MSG] %s\n", static_cast<const retro_message_ext *>(data)->msg);
+    case RETRO_ENVIRONMENT_SET_MESSAGE_EXT: {
+      // core/tasks.cpp (OnScreenDisplayTask) sends a STATUS message every frame ("Layout 1/2"); only show it when verbose.
+      auto *m = static_cast<const retro_message_ext *>(data);
+      if (m->type != RETRO_MESSAGE_TYPE_STATUS || H.verbose) std::fprintf(stderr, "[core MSG] %s\n", m->msg);
       return true;
+    }
     case RETRO_ENVIRONMENT_GET_MESSAGE_INTERFACE_VERSION:
       *static_cast<unsigned *>(data) = 1;
       return true;
@@ -121,6 +125,8 @@ bool environmentCb(unsigned cmd, void *data) {
       *static_cast<const char **>(data) = "melonDS";
       return true;
     case RETRO_ENVIRONMENT_GET_INPUT_BITMASKS:
+      return true;
+    case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:  // core.cpp LoadGame; descriptors are for UI only
       return true;
     // Deliberately unsupported: the core falls back to its software / stdio paths.
     case RETRO_ENVIRONMENT_SET_HW_RENDER:
@@ -171,6 +177,10 @@ int16_t inputStateCb(unsigned, unsigned, unsigned, unsigned) { return 0; }
 
 extern "C" {
 
+// libretro-common/include/retro_timers.h declares retro_sleep as "defined in frontend" on Emscripten.
+// Used by retro::task::wait (task_queue.c), config/console.cpp and platform/platform.cpp (Platform::Sleep).
+void retro_sleep(unsigned msec) { usleep(static_cast<useconds_t>(msec) * 1000); }
+
 EMSCRIPTEN_KEEPALIVE int mds_create(int verbose) {
   if (H.created) return -1;
   H.verbose = verbose != 0;
@@ -213,11 +223,9 @@ EMSCRIPTEN_KEEPALIVE int mds_write_system_file(const char *name, const uint8_t *
 // TODO(phase 5): the save buffer arguments are ignored until save support lands.
 EMSCRIPTEN_KEEPALIVE int mds_load_rom(const uint8_t *rom, size_t len, const uint8_t *, size_t) {
   if (!H.created || H.loaded) return -1;
+  // The core is need_fullpath=false (retro_get_system_info), so it reads info.data; the path is only used for naming.
+  // No copy is written to the in-memory filesystem. [VERIFICAR in phase 5 whether save-file naming needs the file to exist]
   H.romPath = "/rom.nds";
-  FILE *f = std::fopen(H.romPath.c_str(), "wb");
-  if (!f) return -2;
-  std::fwrite(rom, 1, len, f);
-  std::fclose(f);
 
   retro_game_info info{};
   info.path = H.romPath.c_str();

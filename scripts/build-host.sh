@@ -10,13 +10,14 @@ if [[ ! -f dist/libmelonDS.a ]]; then
   exit 1
 fi
 
-EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' -print | tr '\n' ' ')"
+EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' ! -path '*_CMakeLTOTest*' -print | tr '\n' ' ')"
 EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_get_frame_count,_mds_get_duplicated_frames,_malloc,_free"
 
 em++ core/host/host.cpp \
   -Ibuild/melonds/_deps/libretro-common-src/include \
   -O2 \
   -pthread \
+  -fwasm-exceptions \
   -msimd128 \
   -matomics \
   -mbulk-memory \
@@ -30,7 +31,7 @@ em++ core/host/host.cpp \
   "-sMAXIMUM_MEMORY=1073741824" \
   "-sSTACK_SIZE=1048576" \
   "-sEXPORTED_FUNCTIONS=$EXPORTS" \
-  "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPU32" \
+  "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPU32,PThread" \
   -o dist/melonds.js \
   -Wl,--start-group dist/libmelonDS.a $EXTRA_ARCHIVES -Wl,--end-group
 
