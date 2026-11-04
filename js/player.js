@@ -4,6 +4,7 @@
 // It is NOT the final MelonDS class (Phase 10): audio, input and saves are TODO(phase 4-6).
 import { createRingBuffer, RingReader } from "./frame-ring.js";
 import { FrameRenderer, fitCanvas, SCANLINES } from "./renderer.js";
+import { SaveClient } from "./saves.js"; // phase 6
 import { layoutOptions, gapOptions, hybridSmallScreenOptions } from "./layouts.js";
 
 export { SCANLINES } from "./renderer.js";
@@ -37,6 +38,7 @@ export class VideoPlayer {
     this.draw = { frames: 0, fps: 0, windowStart: performance.now(), windowFrames: 0, lastGeometrySerial: -1, resizes: 0 };
     this.lastFrame = null;
     this.running = false;
+    this.saves = new SaveClient({ call: (msg) => this.#call(msg), on: (event, cb) => this.on(event, cb) }); // getSave/loadSave/onSave/saveState/loadState
     this.tick = (now) => this.#raf(now);
     this.resizeObserver = typeof ResizeObserver === "function" && container ? new ResizeObserver(() => this.refit()) : null;
     this.resizeObserver?.observe(container);
@@ -48,7 +50,7 @@ export class VideoPlayer {
     return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.worker.postMessage({ ...msg, id }); });
   }
   #onMessage(m) {
-    if (m.type === "ack") { this.pending.get(m.id)?.resolve(); this.pending.delete(m.id); }
+    if (m.type === "ack") { this.pending.get(m.id)?.resolve(m.result); this.pending.delete(m.id); }
     else if (m.type === "error") {
       const err = Object.assign(new Error(m.message), { code: m.code });
       const p = this.pending.get(m.id);
@@ -62,7 +64,7 @@ export class VideoPlayer {
   #emit(event, payload) { for (const cb of this.listeners.get(event) ?? []) cb(payload); }
 
   // ---- lifecycle ----
-  async loadRom(rom) { await this.#call({ type: "loadRom", rom }); }
+  async loadRom(rom, { save = null } = {}) { await this.#call({ type: "loadRom", rom, save }); }
   start() { this.running = true; this.worker.postMessage({ type: "start" }); requestAnimationFrame(this.tick); }
   pause() { this.worker.postMessage({ type: "pause" }); }
   resume() { this.worker.postMessage({ type: "resume" }); }

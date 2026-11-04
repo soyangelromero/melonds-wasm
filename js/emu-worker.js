@@ -1,11 +1,13 @@
 // Emulation worker: owns the wasm module, runs mds_run_frame at the console's pace and publishes each new composed
 // frame into the shared ring (js/frame-ring.js). Module worker; the main thread only draws.
 import { RingWriter } from "./frame-ring.js";
+import { createWorkerSaves, describeSaveType, getSave as readCartSave, saveStatus } from "./saves-core.js"; // phase 6
 
 const DS_FPS = 59.8261; // fallback; the real value comes from retro_get_system_av_info (mds_get_fps)
 let M = null, ring = null, running = false, speed = 1, loopToken = 0;
 let wPtr = 0, hPtr = 0, sPtr = 0, strPtr = 0;
 let lastSerial = -1, lastGeomSerial = -1;
+let saves = null; // phase 6: save RAM / savestate handlers + change detector (js/saves-core.js)
 const stats = { frames: 0, published: 0, emuMs: 0, windowFrames: 0, windowStart: 0 };
 
 const post = (msg) => self.postMessage(msg);
@@ -27,16 +29,22 @@ async function init({ ring: sab, moduleUrl, verbose, options }) {
   [wPtr, hPtr, sPtr, strPtr] = [M._malloc(4), M._malloc(4), M._malloc(4), M._malloc(4)];
   if (M._mds_create(verbose ? 1 : 0) !== 0) throw new Error("mds_create failed");
   for (const [k, v] of Object.entries(options ?? {})) setOption(k, v);
+  saves = createWorkerSaves(M, post);
   post({ type: "ready", sharedMemory: M.HEAPU8.buffer instanceof SharedArrayBuffer });
 }
 
-function loadRom(bytes) {
+function loadRom(bytes, save) {
   const p = M._malloc(bytes.length);
   M.HEAPU8.set(bytes, p);
-  const rc = M._mds_load_rom(p, bytes.length, 0, 0);
+  const sp = save?.length ? M._malloc(save.length) : 0; // optional .sav, applied before the first frame
+  if (sp) M.HEAPU8.set(save, sp);
+  const rc = M._mds_load_rom(p, bytes.length, sp, sp ? save.length : 0);
   M._free(p); // the core copied what it needs
+  if (sp) M._free(sp);
   if (rc !== 0) throw Object.assign(new Error(`mds_load_rom failed (${rc})`), { code: "ROM_INVALID" });
-  post({ type: "loaded", fps: M._mds_get_fps(), workers: workerCount() });
+  saves.reset();
+  const saveLen = readCartSave(M)?.length ?? 0;
+  post({ type: "loaded", fps: M._mds_get_fps(), workers: workerCount(), saveLen, saveType: describeSaveType(saveLen), saveStatus: saveStatus(M) });
 }
 
 function publishFrame() {
@@ -63,6 +71,7 @@ async function loop(token) {
     const t0 = performance.now();
     M._mds_run_frame();
     publishFrame();
+    saves.tick();
     const t1 = performance.now();
     stats.emuMs += t1 - t0; stats.frames++; stats.windowFrames++;
 
@@ -84,14 +93,17 @@ function start() { if (running) return; running = true; loop(++loopToken); }
 function stop() { running = false; loopToken++; }
 
 const handlers = {
-  init, loadRom: ({ rom }) => loadRom(rom),
+  init, loadRom: ({ rom, save }) => loadRom(rom, save),
   options: ({ set }) => { for (const [k, v] of Object.entries(set)) setOption(k, v); },
-  start, pause: stop, resume: start,
+  start, pause: () => { stop(); saves.tick(true); }, resume: start,
   speed: ({ value }) => { speed = value; },
   dispose: () => { stop(); if (M) M._mds_destroy(); post({ type: "disposed" }); },
 };
 
 self.onmessage = async ({ data }) => {
-  try { await handlers[data.type]?.(data); if (data.id != null) post({ type: "ack", id: data.id }); }
+  try {
+    const out = (await (handlers[data.type] ?? saves?.handlers[data.type])?.(data)) ?? {};
+    if (data.id != null) self.postMessage({ type: "ack", id: data.id, result: out.result }, out.transfer ?? []);
+  }
   catch (error) { post({ type: "error", id: data.id, code: error.code ?? "WORKER", message: String(error.message ?? error), stack: error.stack }); }
 };
