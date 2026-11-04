@@ -39,3 +39,4 @@ nand.bin
 # Test artifacts
 /tests/artifacts/
 /coverage/
+/tests/homebrew/*/build/
