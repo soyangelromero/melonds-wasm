@@ -163,6 +163,13 @@ const handlers = {
   // Test hooks for the stress measurements in tests/phase4-browser.mjs (not part of the public API).
   debugStall: ({ ms }) => { Atomics.wait(sleepSab, 0, 0, ms); },   // block the producer: provokes an underrun
   debugBurst: ({ frames }) => { if (!feeding) return; for (let i = 0; i < frames; i++) stepFrame(); }, // run ahead: provokes an overrun / trim
+  // Integration test hook (tests/integration-browser.mjs): read bytes of DS main RAM (0x02000000..) to prove a cheat wrote them.
+  debugPeek: ({ addr, len }) => {
+    const base = M._mds_ram_data(), size = Number(M._mds_ram_size()), o = (addr >>> 0) - 0x02000000;
+    if (!base || o < 0 || o + len > size) throw Object.assign(new Error("address outside main RAM"), { code: "PEEK_RANGE" });
+    const out = M.HEAPU8.slice(base + o, base + o + len);
+    return { result: out, transfer: [out.buffer] };
+  },
   dispose: () => { stop(); if (M) M._mds_destroy(); post({ type: "disposed" }); },
 };
 

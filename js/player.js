@@ -83,6 +83,10 @@ export class VideoPlayer {
   }
   pause() { this.paused = true; this.audio?.setPaused(true); this.worker.postMessage({ type: "pause" }); } // the worklet starts its 6 ms fade right away
   resume() { this.paused = false; this.audio?.start().catch(() => {}); this.worker.postMessage({ type: "resume" }); }
+  // ---- cheats (Phase 8 worker handlers, API_CONTRACT.md section 4) ----
+  /** Creates/replaces cheat `id` and enables or disables it (Action Replay text, any separator). Rejects with code CHEAT_* on bad syntax. */
+  async setCheat(id, enabled, code) { await this.#call({ type: "cheat", cheatId: id, enabled: !!enabled, code }); } // not `id`: #call() puts the ack id there
+  async clearCheats() { await this.#call({ type: "cheatClear" }); }
   /** 1 = normal, 2/3/4... = faster, 0 = unlimited. */
   setSpeed(multiplier) { this.worker.postMessage({ type: "speed", value: multiplier }); }
   async dispose() { this.running = false; await this.audio?.dispose(); this.resizeObserver?.disconnect(); await this.#call({ type: "dispose" }).catch(() => {}); this.worker.terminate(); }

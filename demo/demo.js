@@ -12,6 +12,22 @@ for (const label of LAYOUT_LABELS) $("layout").add(new Option(label, label));
 if (params.get("backend") === "canvas2d") $("canvas2d").checked = true;
 if (params.get("threads") === "0") $("threaded").checked = false;
 
+let romKey = null, quick = null, saveEvents = 0;
+
+// --- tiny IndexedDB key/value store (demo convenience only; the library itself never stores anything). Same DB as demo/saves.html ---
+const db = () => new Promise((resolve, reject) => { const r = indexedDB.open("melonds-wasm-demo", 1); r.onupgradeneeded = () => r.result.createObjectStore("saves"); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); });
+async function idb(mode, fn) { const d = await db(); return new Promise((resolve, reject) => { const t = d.transaction("saves", mode); const req = fn(t.objectStore("saves")); t.oncomplete = () => resolve(req?.result); t.onerror = () => reject(t.error); }); }
+const storeGet = (k) => idb("readonly", (st) => st.get(k)).catch(() => undefined);
+const storePut = (k, v) => idb("readwrite", (st) => st.put(v, k));
+const storeDel = (k) => idb("readwrite", (st) => st.delete(k));
+const download = (bytes, name) => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([bytes])), download: name }); a.click(); URL.revokeObjectURL(a.href); };
+const romKeyOf = (rom) => `${new TextDecoder().decode(rom.subarray(0x0c, 0x10))}:${new TextDecoder().decode(rom.subarray(0, 12)).replace(/\0/g, "").trim()}`;
+const fail = (e) => { say(`${e.code ?? "error"}: ${e.message}`, true); console.error(e); };
+const setEnabled = (on, hasSave) => {
+  for (const id of ["qsave", "qload", "dlState", "loadState", "cheatOn", "cheatOff", "cheatClear"]) $(id).disabled = !on;
+  for (const id of ["dlSave", "loadSave", "clearStore"]) $(id).disabled = !(on && hasSave);
+};
+
 const say = (text, error = false) => { msg.textContent = text; msg.classList.toggle("err", error); };
 if (!self.crossOriginIsolated) say("Esta página no está aislada (COOP/COEP). Sírvela con `npm run serve` y abre http://127.0.0.1:8080/demo/", true);
 
@@ -19,7 +35,13 @@ async function loadRom(file) {
   say("Cargando…");
   detachInput.forEach((f) => f()); detachInput = [];
   if (player) { await player.dispose(); player = null; }
+  setEnabled(false);
   const rom = new Uint8Array(await file.arrayBuffer()); // stays in this tab: no upload, no network
+  romKey = romKeyOf(rom); quick = null; saveEvents = 0;
+  let save = null, origin = "ninguno (partida nueva)";
+  const picked = $("sav").files[0];
+  if (picked) { save = new Uint8Array(await picked.arrayBuffer()); origin = `archivo ${picked.name} (${save.length} bytes)`; }
+  else if ($("persist").checked) { const stored = await storeGet(romKey); if (stored) { save = new Uint8Array(stored); origin = `IndexedDB: «Continuar» (${save.length} bytes)`; } }
   try {
     player = await VideoPlayer.create({
       canvas, container: $("stage"), moduleUrl: new URL("../dist/melonds.js", import.meta.url),
@@ -34,10 +56,22 @@ async function loadRom(file) {
     applyFilter(); player.setScaling({ integer: $("integer").checked, smooth: $("smooth").checked });
     player.setSpeed(+$("speed").value);
     player.setVolume(+$("volume").value / 100); player.setMuted($("mute").checked);
-    await player.loadRom(rom);
+    let loaded = null;
+    player.on("loaded", (m) => { loaded = m; });
+    await player.loadRom(rom, { save });
+    $("s-savetype").textContent = loaded ? `${loaded.saveType}${loaded.saveLen ? ` · ${loaded.saveLen} bytes` : ""}${loaded.saveStatus === 1 ? " · el .sav tenía otra longitud (rellenado/truncado)" : ""}` : "—";
+    $("s-origin").textContent = origin;
+    $("s-save").textContent = "— (todavía no ha escrito el juego)";
+    $("s-cheats").textContent = "ninguno"; cheatState.clear();
+    player.saves.onSave(async (bytes) => {
+      saveEvents++;
+      $("s-save").textContent = `#${saveEvents} ${new Date().toLocaleTimeString()} · ${bytes.length} bytes`;
+      if ($("persist").checked) await storePut(romKey, bytes);
+    }, 500);
     detachInput = [player.attachKeyboard(), player.attachGamepad(), player.attachPointer()]; // arrows/Space no longer scroll
     player.start();
     $("pause").disabled = $("shot").disabled = false;
+    setEnabled(true, !!loaded?.saveLen);
     say("");
     window.__demo.player = player;
   } catch (error) { say(`${error.code ?? "error"}: ${error.message}`, true); console.error(error); }
@@ -72,6 +106,25 @@ $("pause").addEventListener("click", () => {
   $("pause").dataset.paused = paused ? "0" : "1"; $("pause").textContent = paused ? "Pausa" : "Reanudar";
 });
 $("shot").addEventListener("click", () => canvas.toBlob((b) => { const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(b), download: "melonds.png" }); a.click(); URL.revokeObjectURL(a.href); }));
+
+// --- saves / states / cheats (phases 6 and 8) ---
+$("dlSave").addEventListener("click", async () => { const b = await player.saves.getSaveNow(); if (b) download(b, "game.sav"); });
+$("loadSave").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { const r = await player.saves.loadSave(new Uint8Array(await f.arrayBuffer())); say(r.resized ? "Guardado aplicado (tamaño distinto: rellenado/truncado) y juego reiniciado." : "Guardado aplicado y juego reiniciado."); } catch (err) { fail(err); } });
+$("clearStore").addEventListener("click", async () => { await storeDel(romKey); say("Guardado almacenado borrado (el juego en curso no cambia)."); });
+$("qsave").addEventListener("click", async () => { try { quick = await player.saves.saveState(); say(`Estado rápido guardado (${(quick.length / 1048576).toFixed(1)} MiB).`); } catch (err) { fail(err); } });
+$("qload").addEventListener("click", async () => { if (!quick) return say("No hay estado rápido.", true); try { await player.saves.loadState(quick); say("Estado rápido cargado."); } catch (err) { fail(err); } });
+$("dlState").addEventListener("click", async () => { try { download(await player.saves.saveState(), "game.mdsstate"); } catch (err) { fail(err); } });
+$("loadState").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { await player.saves.loadState(new Uint8Array(await f.arrayBuffer())); say("Estado cargado."); } catch (err) { fail(err); } });
+const cheatState = new Map();
+const cheatSummary = () => { $("s-cheats").textContent = cheatState.size ? [...cheatState].map(([id, on]) => `#${id} ${on ? "ON" : "off"}`).join(" · ") : "ninguno"; };
+async function setCheat(on) {
+  try { const id = +$("cheatId").value; await player.setCheat(id, on, $("cheatCode").value); cheatState.set(id, on); cheatSummary(); say(`Truco #${id} ${on ? "activado" : "desactivado"}.`); }
+  catch (err) { fail(err); }
+}
+$("cheatOn").addEventListener("click", () => setCheat(true));
+$("cheatOff").addEventListener("click", () => setCheat(false));
+$("cheatClear").addEventListener("click", async () => { try { await player.clearCheats(); cheatState.clear(); cheatSummary(); say("Trucos quitados."); } catch (err) { fail(err); } });
+window.addEventListener("pagehide", () => { player?.saves.flush(); });
 
 setInterval(() => {
   if (!player) return;

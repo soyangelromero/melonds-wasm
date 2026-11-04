@@ -3,12 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>melonds-wasm · Fase 4 (audio)</title>
+    <title>melonds-wasm · integración (fases 3-6, 8)</title>
     <link rel="icon" href="data:," />
     <style>
       :root { color-scheme: dark; }
       body { font-family: system-ui, sans-serif; margin: 0; background: #111; color: #eee; display: grid; grid-template-columns: 19rem 1fr; min-height: 100vh; }
-      aside { padding: 1rem; background: #181a1f; border-right: 1px solid #2b2f37; overflow-y: auto; font-size: .9rem; }
+      /* sticky + own scroll: a tall control column must not stretch <main> (that pushed the canvas below the viewport and off-screen for pointer tests) */
+      aside { padding: 1rem; background: #181a1f; border-right: 1px solid #2b2f37; overflow-y: auto; font-size: .9rem; position: sticky; top: 0; height: 100vh; box-sizing: border-box; align-self: start; }
       h1 { font-size: 1.05rem; margin: 0 0 .75rem; }
       fieldset { border: 1px solid #2b2f37; border-radius: .4rem; margin: 0 0 .8rem; padding: .5rem .7rem; }
       legend { color: #9da7b3; padding: 0 .3rem; }
@@ -27,7 +28,7 @@
   </head>
   <body>
     <aside>
-      <h1>melonDS WASM · vídeo + audio</h1>
+      <h1>melonDS WASM · demo integrada</h1>
       <fieldset>
         <legend>ROM (no se sube a ningún sitio)</legend>
         <input id="rom" type="file" accept=".nds,.srl" />
@@ -77,7 +78,26 @@
         <legend>Controles</legend>
         <small style="color:#9da7b3">Flechas = cruceta · Z=A · X=B · A=X · S=Y · Q=L · E=R · Enter=Start · V=Select. Mando estándar: botón derecho=A, inferior=B, superior=X, izquierdo=Y, LB/RB=L/R, Back/Start, cruceta o palanca izquierda. Ratón/táctil sobre la imagen = pantalla táctil.</small>
       </fieldset>
-      <p style="color:#9da7b3">Guardado: aún no (fase 6).</p>
+      <fieldset>
+        <legend>Guardado y estados</legend>
+        <label><input id="persist" type="checkbox" checked /> Autoguardar en este navegador (IndexedDB) y «Continuar» al reabrir la misma ROM</label>
+        <label>.sav inicial (opcional, antes de elegir la ROM) <input id="sav" type="file" accept=".sav,.dsv,.bin" /></label>
+        <button id="dlSave" type="button" disabled>Descargar .sav</button>
+        <label>Reemplazar .sav y reiniciar <input id="loadSave" type="file" accept=".sav,.dsv,.bin" disabled /></label>
+        <button id="clearStore" type="button" disabled>Borrar el guardado almacenado</button>
+        <button id="qsave" type="button" disabled>Estado rápido: guardar</button>
+        <button id="qload" type="button" disabled>Estado rápido: cargar</button>
+        <button id="dlState" type="button" disabled>Descargar estado (.mdsstate)</button>
+        <label>Cargar estado desde archivo <input id="loadState" type="file" disabled /></label>
+      </fieldset>
+      <fieldset>
+        <legend>Trucos (Action Replay)</legend>
+        <label>Id <input id="cheatId" type="number" min="0" value="1" style="width:5rem" /></label>
+        <label>Código (palabras hex de 8 dígitos)<textarea id="cheatCode" rows="2" style="width:100%;box-sizing:border-box" placeholder="02000100 12345678"></textarea></label>
+        <button id="cheatOn" type="button" disabled>Activar</button>
+        <button id="cheatOff" type="button" disabled>Desactivar</button>
+        <button id="cheatClear" type="button" disabled>Quitar todos</button>
+      </fieldset>
     </aside>
     <main>
       <div id="stage"><canvas id="screen" width="256" height="384"></canvas></div>
@@ -90,6 +110,10 @@
         <dt>Dibujado</dt><dd id="s-draw">—</dd>
         <dt>Buffer circular</dt><dd id="s-ring">—</dd>
         <dt>Entrada</dt><dd id="s-input">—</dd>
+        <dt>Guardado</dt><dd id="s-savetype">—</dd>
+        <dt>Último onSave</dt><dd id="s-save">—</dd>
+        <dt>Origen del .sav</dt><dd id="s-origin">—</dd>
+        <dt>Trucos</dt><dd id="s-cheats">—</dd>
         <dt>Hilos 3D (workers pthread)</dt><dd id="s-workers">—</dd>
         <dt>AudioContext</dt><dd id="s-actx">—</dd>
         <dt>Buffer de audio</dt><dd id="s-abuf">—</dd>

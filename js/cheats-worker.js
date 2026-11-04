@@ -34,8 +34,10 @@ export function clearCheats(M) {
   M._mds_cheat_clear();
 }
 
-/** Handlers to spread into emu-worker.js `handlers`: {cheat:{id,enabled,code}}, {cheatClear}. The worker acks by id. */
+/** Handlers to spread into emu-worker.js `handlers`: {type:"cheat", cheatId, enabled, code}, {type:"cheatClear"}. The worker acks by
+ *  the message `id`. Integration fix: the VideoPlayer request/ack protocol puts its own `id` on every message, which overwrote the
+ *  cheat's id, so the cheat id travels as `cheatId`; plain `id` is still accepted for direct calls (tests/cheats-memory.test.mjs). */
 export const cheatHandlers = (getModule) => ({
-  cheat: ({ id, enabled, code }) => { setCheat(getModule(), id, enabled, code); },
+  cheat: ({ cheatId, id, enabled, code }) => { setCheat(getModule(), cheatId ?? id, enabled, code); },
   cheatClear: () => { clearCheats(getModule()); },
 });
