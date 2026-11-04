@@ -11,9 +11,10 @@ if [[ ! -f dist/libmelonDS.a ]]; then
 fi
 
 EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' ! -path '*_CMakeLTOTest*' -print | tr '\n' ' ')"
-EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_mds_get_audio,_mds_get_audio_available,_mds_flush_audio,_mds_get_audio_frames_total,_mds_get_audio_overruns,_mds_get_audio_underruns,_mds_get_audio_batches,_mds_get_audio_singles,_mds_set_key_mask,_mds_set_pointer,_mds_get_input_queries,_mds_get_core_abi,_mds_get_save_status,_mds_get_save,_mds_set_save,_mds_poll_save,_mds_save_state,_mds_load_state,_malloc,_free"
+EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_mds_get_audio,_mds_get_audio_available,_mds_flush_audio,_mds_get_audio_frames_total,_mds_get_audio_overruns,_mds_get_audio_underruns,_mds_get_audio_batches,_mds_get_audio_singles,_mds_set_key_mask,_mds_set_pointer,_mds_get_input_queries,_mds_get_core_abi,_mds_get_save_status,_mds_get_save,_mds_set_save,_mds_poll_save,_mds_save_state,_mds_load_state,_mds_cheat_set,_mds_cheat_clear,_mds_cheat_count,_mds_cheat_slot,_mds_cheat_enabled,_mds_ram_data,_mds_ram_size,_mds_heap_used,_malloc,_free"
 
 em++ core/host/host.cpp core/host/saves.cpp \
+  core/host/cheats.cpp \
   -Ibuild/melonds/_deps/libretro-common-src/include \
   -O2 \
   -pthread \

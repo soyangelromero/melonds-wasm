@@ -19,6 +19,7 @@
     "build:tone-rom": "python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds",
     "test:input": "node tests/phase5-core.mjs tests/artifacts/nmap.nds && node tests/phase5-browser.mjs tests/artifacts/nmap.nds",
     "test:saves": "node --test tests/phase6-saves.mjs",
-    "test:saves-browser": "node tests/phase6-browser.mjs"
+    "test:saves-browser": "node tests/phase6-browser.mjs",
+    "test:cheats": "node --test tests/cheats.test.mjs tests/cheats-memory.test.mjs"
   }
 }

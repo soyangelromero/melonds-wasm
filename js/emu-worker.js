@@ -4,6 +4,7 @@ import { RingWriter } from "./frame-ring.js";
 import { AudioRingWriter } from "./audio-ring.js";
 import { InputReader } from "./input.js";
 import { createWorkerSaves, describeSaveType, getSave as readCartSave, saveStatus } from "./saves-core.js"; // phase 6
+import { cheatHandlers } from "./cheats-worker.js"; // Phase 8
 
 const DS_FPS = 59.8261; // fallback; the real value comes from retro_get_system_av_info (mds_get_fps)
 let M = null, ring = null, running = false, speed = 1, loopToken = 0;
@@ -157,6 +158,7 @@ const handlers = {
   init, loadRom: ({ rom, save }) => loadRom(rom, save),
   options: ({ set }) => { for (const [k, v] of Object.entries(set)) setOption(k, v); },
   start, pause: () => { stop(); saves.tick(true); }, resume: start, // phase 6: one last SRAM check when pausing
+  ...cheatHandlers(() => M), // Phase 8: cheat, cheatClear
   speed: ({ value }) => { speed = value; },
   // Test hooks for the stress measurements in tests/phase4-browser.mjs (not part of the public API).
   debugStall: ({ ms }) => { Atomics.wait(sleepSab, 0, 0, ms); },   // block the producer: provokes an underrun

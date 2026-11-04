@@ -16,6 +16,8 @@
 #include "libretro.h"
 #include "saves.hpp"
 
+extern "C" void mds_cheats_forget();  // core/host/cheats.cpp (Phase 8)
+
 namespace {
 
 constexpr const char *kSystemDir = "/system";
@@ -307,6 +309,7 @@ EMSCRIPTEN_KEEPALIVE void mds_destroy() {
   if (!H.created) return;
   if (H.loaded) retro_unload_game();
   retro_deinit();
+  mds_cheats_forget();
   H = Host{};
   IN = InputBox{};
   mds::savesReset();
@@ -424,6 +427,7 @@ EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_batches() { return H.audioBatches; }
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_audio_singles() { return H.audioSingles; }
 
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_frame_count() { return H.frameCount; }
+int mds_host_loaded() { return H.loaded ? 1 : 0; }  // used by core/host/cheats.cpp (Phase 8)
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_duplicated_frames() { return H.duplicatedFrames; }
 
 // Phase 5 input (API_CONTRACT.md section 8). Takes effect at the next mds_run_frame.
