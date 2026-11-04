@@ -8,6 +8,7 @@ import { FrameRenderer, fitCanvas, SCANLINES } from "./renderer.js";
 import { createAudioRingBuffer, DEFAULT_CAPACITY_FRAMES, createCaptureBuffer } from "./audio-ring.js";
 import { AudioOutput } from "./audio-output.js";
 import { InputState } from "./input.js";
+import { SaveClient } from "./saves.js"; // phase 6
 import { layoutOptions, gapOptions, hybridSmallScreenOptions } from "./layouts.js";
 
 export { SCANLINES } from "./renderer.js";
@@ -48,6 +49,7 @@ export class VideoPlayer {
     this.lastFrame = null;
     this.running = false;
     this.audio = null; this.audioRing = null; this.audioCaptureRing = null;
+    this.saves = new SaveClient({ call: (msg) => this.#call(msg), on: (event, cb) => this.on(event, cb) }); // getSave/loadSave/onSave/saveState/loadState
     this.tick = (now) => this.#raf(now);
     this.resizeObserver = typeof ResizeObserver === "function" && container ? new ResizeObserver(() => this.refit()) : null;
     this.resizeObserver?.observe(container);
@@ -59,7 +61,7 @@ export class VideoPlayer {
     return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject }); this.worker.postMessage({ ...msg, id }); });
   }
   #onMessage(m) {
-    if (m.type === "ack") { this.pending.get(m.id)?.resolve(); this.pending.delete(m.id); }
+    if (m.type === "ack") { this.pending.get(m.id)?.resolve(m.result); this.pending.delete(m.id); }
     else if (m.type === "error") {
       const err = Object.assign(new Error(m.message), { code: m.code });
       const p = this.pending.get(m.id);
@@ -73,7 +75,7 @@ export class VideoPlayer {
   #emit(event, payload) { for (const cb of this.listeners.get(event) ?? []) cb(payload); }
 
   // ---- lifecycle ----
-  async loadRom(rom) { await this.#call({ type: "loadRom", rom }); }
+  async loadRom(rom, { save = null } = {}) { await this.#call({ type: "loadRom", rom, save }); }
   start() {
     this.running = true; this.paused = false;
     this.audio?.start().catch(() => {}); // no-op if the context is not allowed yet: autoUnlock retries on the first gesture

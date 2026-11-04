@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "libretro.h"
+#include "saves.hpp"
 
 namespace {
 
@@ -308,6 +309,7 @@ EMSCRIPTEN_KEEPALIVE void mds_destroy() {
   retro_deinit();
   H = Host{};
   IN = InputBox{};
+  mds::savesReset();
 }
 
 // Set options before mds_load_rom so they apply at boot; later changes are picked up through GET_VARIABLE_UPDATE.
@@ -326,8 +328,8 @@ EMSCRIPTEN_KEEPALIVE int mds_write_system_file(const char *name, const uint8_t *
   return n == len ? 0 : -2;
 }
 
-// TODO(phase 5): the save buffer arguments are ignored until save support lands.
-EMSCRIPTEN_KEEPALIVE int mds_load_rom(const uint8_t *rom, size_t len, const uint8_t *, size_t) {
+// save/saveLen (optional) is the cartridge save, applied before the first frame (see core/host/saves.cpp).
+EMSCRIPTEN_KEEPALIVE int mds_load_rom(const uint8_t *rom, size_t len, const uint8_t *save, size_t saveLen) {
   if (!H.created || H.loaded) return -1;
   // The core is need_fullpath=false (retro_get_system_info), so it reads info.data; the path is only used for naming.
   // No copy is written to the in-memory filesystem. [VERIFICAR in phase 5 whether save-file naming needs the file to exist]
@@ -339,6 +341,7 @@ EMSCRIPTEN_KEEPALIVE int mds_load_rom(const uint8_t *rom, size_t len, const uint
   info.size = len;
   if (!retro_load_game(&info)) return -3;
   H.loaded = true;
+  mds::savesOnLoaded(save, saveLen);
   retro_system_av_info av{};  // initial geometry and timing; later changes arrive through the environment callback
   retro_get_system_av_info(&av);
   const retro_game_geometry &g = av.geometry;

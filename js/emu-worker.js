@@ -3,6 +3,7 @@
 import { RingWriter } from "./frame-ring.js";
 import { AudioRingWriter } from "./audio-ring.js";
 import { InputReader } from "./input.js";
+import { createWorkerSaves, describeSaveType, getSave as readCartSave, saveStatus } from "./saves-core.js"; // phase 6
 
 const DS_FPS = 59.8261; // fallback; the real value comes from retro_get_system_av_info (mds_get_fps)
 let M = null, ring = null, running = false, speed = 1, loopToken = 0;
@@ -14,6 +15,7 @@ let lastSerial = -1, lastGeomSerial = -1;
 const AUDIO_MAX_FRAMES = 2048; // the core never delivers more than this per retro_run (core.cpp RenderAudio)
 const ALIVE_MS = 150;          // heartbeat older than this => AudioContext suspended/absent => fall back to the timer
 let aw = null, audioPtr = 0, audioLatencyMs = 80, feeding = false, lastTick = -1, lastTickAt = 0, srcRate = 32728.498;
+let saves = null; // phase 6: save RAM / savestate handlers + change detector (js/saves-core.js)
 const stats = { frames: 0, published: 0, emuMs: 0, windowFrames: 0, windowStart: 0 };
 
 const post = (msg) => self.postMessage(msg);
@@ -39,18 +41,24 @@ async function init({ ring: sab, input, audioRing, audioLatencyMs: lat, moduleUr
   audioPtr = M._malloc(AUDIO_MAX_FRAMES * 4);
   if (M._mds_create(verbose ? 1 : 0) !== 0) throw new Error("mds_create failed");
   for (const [k, v] of Object.entries(options ?? {})) setOption(k, v);
+  saves = createWorkerSaves(M, post);
   post({ type: "ready", sharedMemory: M.HEAPU8.buffer instanceof SharedArrayBuffer });
 }
 
-function loadRom(bytes) {
+function loadRom(bytes, save) {
   const p = M._malloc(bytes.length);
   M.HEAPU8.set(bytes, p);
-  const rc = M._mds_load_rom(p, bytes.length, 0, 0);
+  const sp = save?.length ? M._malloc(save.length) : 0; // optional .sav, applied before the first frame
+  if (sp) M.HEAPU8.set(save, sp);
+  const rc = M._mds_load_rom(p, bytes.length, sp, sp ? save.length : 0);
   M._free(p); // the core copied what it needs
+  if (sp) M._free(sp);
   if (rc !== 0) throw Object.assign(new Error(`mds_load_rom failed (${rc})`), { code: "ROM_INVALID" });
   srcRate = M._mds_get_sample_rate() || srcRate;
   if (aw) { aw.setSourceRate(srcRate); aw.setTargetFrames(Math.round((audioLatencyMs / 1000) * srcRate)); }
-  post({ type: "loaded", fps: M._mds_get_fps(), sampleRate: srcRate, workers: workerCount() });
+  saves.reset();
+  const saveLen = readCartSave(M)?.length ?? 0;
+  post({ type: "loaded", fps: M._mds_get_fps(), sampleRate: srcRate, workers: workerCount(), saveLen, saveType: describeSaveType(saveLen), saveStatus: saveStatus(M) });
 }
 
 function applyInput() {
@@ -135,6 +143,7 @@ function stepFrame() {
   M._mds_run_frame();
   publishFrame();
   drainAudio();
+  saves.tick(); // Phase 6: SRAM change detector (every 10th frame), after the frame's writes
   stats.emuMs += performance.now() - t0; stats.frames++; stats.windowFrames++;
 }
 
@@ -145,9 +154,9 @@ function stop() {
 }
 
 const handlers = {
-  init, loadRom: ({ rom }) => loadRom(rom),
+  init, loadRom: ({ rom, save }) => loadRom(rom, save),
   options: ({ set }) => { for (const [k, v] of Object.entries(set)) setOption(k, v); },
-  start, pause: stop, resume: start,
+  start, pause: () => { stop(); saves.tick(true); }, resume: start, // phase 6: one last SRAM check when pausing
   speed: ({ value }) => { speed = value; },
   // Test hooks for the stress measurements in tests/phase4-browser.mjs (not part of the public API).
   debugStall: ({ ms }) => { Atomics.wait(sleepSab, 0, 0, ms); },   // block the producer: provokes an underrun
@@ -156,6 +165,10 @@ const handlers = {
 };
 
 self.onmessage = async ({ data }) => {
-  try { await handlers[data.type]?.(data); if (data.id != null) post({ type: "ack", id: data.id }); }
+  try {
+    const out = (await (handlers[data.type] ?? saves?.handlers[data.type])?.(data)) ?? {};
+    if (data.type === "loadState" || data.type === "setSave") M._mds_flush_audio(); // the old audio belongs to the previous timeline
+    if (data.id != null) self.postMessage({ type: "ack", id: data.id, result: out.result }, out.transfer ?? []);
+  }
   catch (error) { post({ type: "error", id: data.id, code: error.code ?? "WORKER", message: String(error.message ?? error), stack: error.stack }); }
 };
