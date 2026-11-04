@@ -40,3 +40,6 @@ nand.bin
 /tests/artifacts/
 /coverage/
 /tests/homebrew/*/build/
+
+# npm lockfile is not versioned in this repo
+package-lock.json
