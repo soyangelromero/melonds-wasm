@@ -6,9 +6,17 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 PATCH_DIR="$PWD/core/patches"
+# safe.directory: inside Docker the mounted checkout belongs to another user and git would refuse it.
+SUB=(git -c safe.directory='*' -C third_party/melonds-ds)
 for patch in "$PATCH_DIR"/*.patch; do
-  if git -C third_party/melonds-ds apply --check "$patch" 2>/dev/null; then
-    git -C third_party/melonds-ds apply "$patch"
+  if "${SUB[@]}" apply --check "$patch" 2>/dev/null; then
+    "${SUB[@]}" apply "$patch"
+  elif "${SUB[@]}" apply --reverse --check "$patch" 2>/dev/null; then
+    echo "patch already applied: $(basename "$patch")"
+  else
+    echo "ERROR: cannot apply $(basename "$patch"). If the submodule has CRLF line endings (Windows core.autocrlf=true)," >&2
+    echo "       run: git -C third_party/melonds-ds config core.autocrlf false && git -C third_party/melonds-ds rm --cached -r -q . && git -C third_party/melonds-ds reset --hard" >&2
+    exit 1
   fi
 done
 

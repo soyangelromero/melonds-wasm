@@ -28,3 +28,15 @@ razón y el impacto. No se cambia el contrato en silencio.
 | 2026-11-04 | `scripts/build.sh host` sin Docker | La detección de «sin Docker» usa `docker info` en vez de `command -v docker` | En esta nube existe el binario `docker` pero no el demonio | `build.sh core/core-test/host/host-test` usan emsdk local si Docker no responde; objetivos `host`/`host-test` añadidos también a `build.ps1` |
 | 2026-11-04 | `API_CONTRACT.md` §8: `mds_create(threads)` | `mds_create(verbose)`; los hilos se eligen con `mds_set_option("melonds_threaded_renderer","enabled"\|"disabled")` antes de `mds_load_rom` | Es la opción real del núcleo (`config/constants.hpp:184`) | El contrato debe actualizarse en la Fase 3 (no se cambia aquí) |
 | 2026-11-04 | Funciones del contrato §8 | Faltan `mds_set_firmware`, `mds_set_bios` (hay `mds_write_system_file`), `mds_copy_frame`, `mds_get_audio`, `mds_set_key_mask`, `mds_set_pointer`, `mds_get_save`/`set_save`, estados, trucos y `mds_get_stats` | Fuera del alcance de la Fase 2 (audio, entrada y guardado = `TODO(fase N)`) | Sin impacto hasta esas fases |
+
+## Compilación local en Windows con Docker (prueba con ROM comercial)
+
+| Fecha | Plan / instrucción | Realidad | Razón | Impacto |
+|---|---|---|---|---|
+| 2026-11-04 | `build-core.sh` aplica los parches y sigue | En Docker sobre Windows los parches no se aplicaban y la compilación fallaba en `mmap` sin explicar por qué | Git dentro del contenedor rechaza la carpeta montada (propietario distinto) y el script ocultaba el error con `2>/dev/null` | El script usa ahora `git -c safe.directory='*'` y falla con un mensaje claro si un parche ni se aplica ni estaba ya aplicado |
+| 2026-11-04 | Los parches encajan en el submódulo | En Windows con `core.autocrlf=true` el submódulo queda con CRLF y los parches (LF) no encajan | Conversión de saltos de línea al hacer checkout | Solución local: `git -C third_party/melonds-ds config core.autocrlf false && git -C third_party/melonds-ds rm --cached -r -q . && git -C third_party/melonds-ds reset --hard`. El mensaje de error del script lo indica |
+| 2026-11-04 | `scripts/build.sh host` compila el anfitrión con Docker | El objetivo `host` solo existe en la rama sin Docker; con Docker se compiló con `docker run … bash -lc "bash scripts/build-core.sh && bash scripts/build-host.sh"` | Los objetivos `host`/`host-test` no se añadieron al bloque de Docker | Pendiente de añadir al bloque de Docker de `build.sh` y `build.ps1` |
+
+Prueba con ROM comercial (Pokémon Plata SoulSilver, española, sin subirla): 600 fotogramas con `--threads=1` y `--threads=0`, sin `Aborted`;
+hashes de los fotogramas 120/240/360/480/600 idénticos entre ambos modos y distintos entre sí salvo 480 y 600 (pantalla estática);
+1 worker con hilos y 0 sin ellos; 109 fps (hilos) y 124 fps (sin hilos) sin límite de velocidad, sin audio ni entrada. Escena de la intro, no es un benchmark.
