@@ -191,6 +191,8 @@ Teclas por defecto: flechas = cruceta, `Z`=A, `X`=B, `A`=X, `S`=Y, `Q`=L, `E`=R,
 (deben coincidir con la pestaña "Controles" de la web app).
 Los eventos de teclado **no** deben dejar que la página haga scroll con las flechas/espacio mientras se juega.
 
+**Fase 5 (implementado en `js/input.js`; detalles en `tests/PHASE5_REPORT.md`):** las teclas se identifican por `KeyboardEvent.code` (posición física; el mapa personalizado también acepta `event.key`); el mando usa la Gamepad API con mapeo `standard`; `LID` = L2+Y del núcleo (alterna la tapa) y se añade `MIC` = L3 como extensión del tipo `Button`; `attachPointer(canvas)` (ratón/táctil/lápiz con Pointer Events) es el complemento DOM de `touchFromCanvas`.
+
 ## 6. Guardado y estados
 
 - `getSave()` devuelve los bytes **exactos** que escribiría melonDS escritorio en un `.sav` (compatibles con
@@ -261,7 +263,7 @@ mds_copy_frame(void *dst, size_t dst_len, unsigned *width, unsigned *height, siz
 mds_get_audio(int16_t *dst, size_t max_frames) -> n   // REAL (Fase 4): PCM estéreo 16 bit intercalado (L,R); unidad = FOTOGRAMAS estéreo (un par), no valores int16; frecuencia = mds_get_sample_rate() = 33513982/1024 = 32728,498 Hz (NO 32768; constants.hpp SAMPLE_RATE). ~547 fotogramas por mds_run_frame (546..548); máximo 2048
 mds_get_audio_available() / mds_flush_audio()          // REAL (Fase 4): pendientes en el anillo del anfitrión (8192 fotogramas) / descartarlos
 mds_get_audio_frames_total() / _overruns() / _underruns() / _batches() / _singles()   // REAL (Fase 4): overruns = fotogramas DESCARTADOS (anillo lleno: se tiran los más nuevos); underruns = llamadas a mds_get_audio que encontraron menos de lo pedido; singles = 0 siempre (el núcleo no usa retro_audio_sample)
-mds_set_key_mask(mask) / mds_set_pointer(nx,ny,pressed) // nx,ny normalizados -32767..32767 en el espacio del fotograma; el núcleo resuelve el layout
+mds_set_key_mask(mask) / mds_set_pointer(nx,ny,pressed) / mds_get_input_queries() // REAL (Fase 5): mask = bit i ↔ RETRO_DEVICE_ID_JOYPAD_i (B=0 … R=11, L2=12, L3=14); nx,ny normalizados -32767..32767 en el espacio del fotograma MOSTRADO (ya girado), (0,0) sin pulsar = puntero ausente; el núcleo resuelve layout, hueco, híbrido y rotación; queries = diagnóstico de lo que el núcleo pide
 mds_get_save(ptr_out,len_out) / mds_set_save(ptr,len)
 mds_save_state(ptr_out,len_out) / mds_load_state(ptr,len)
 mds_cheat_set(id,enabled,ptr,len) / mds_cheat_clear()

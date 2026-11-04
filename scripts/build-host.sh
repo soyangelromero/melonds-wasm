@@ -11,7 +11,7 @@ if [[ ! -f dist/libmelonDS.a ]]; then
 fi
 
 EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' ! -path '*_CMakeLTOTest*' -print | tr '\n' ' ')"
-EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_mds_get_audio,_mds_get_audio_available,_mds_flush_audio,_mds_get_audio_frames_total,_mds_get_audio_overruns,_mds_get_audio_underruns,_mds_get_audio_batches,_mds_get_audio_singles,_malloc,_free"
+EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_mds_get_audio,_mds_get_audio_available,_mds_flush_audio,_mds_get_audio_frames_total,_mds_get_audio_overruns,_mds_get_audio_underruns,_mds_get_audio_batches,_mds_get_audio_singles,_mds_set_key_mask,_mds_set_pointer,_mds_get_input_queries,_malloc,_free"
 
 em++ core/host/host.cpp \
   -Ibuild/melonds/_deps/libretro-common-src/include \

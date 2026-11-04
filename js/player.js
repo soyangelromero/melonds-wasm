@@ -7,6 +7,7 @@ import { createRingBuffer, RingReader } from "./frame-ring.js";
 import { FrameRenderer, fitCanvas, SCANLINES } from "./renderer.js";
 import { createAudioRingBuffer, DEFAULT_CAPACITY_FRAMES, createCaptureBuffer } from "./audio-ring.js";
 import { AudioOutput } from "./audio-output.js";
+import { InputState } from "./input.js";
 import { layoutOptions, gapOptions, hybridSmallScreenOptions } from "./layouts.js";
 
 export { SCANLINES } from "./renderer.js";
@@ -27,7 +28,7 @@ export class VideoPlayer {
     player.worker.onmessage = (e) => player.#onMessage(e.data);
     player.worker.onerror = (e) => player.#fail(new Error(e.message || "worker error"));
     await player.#call({
-      type: "init", ring: player.ringBuffer, moduleUrl: String(moduleUrl), verbose, audioRing: player.audioRing, audioLatencyMs,
+      type: "init", ring: player.ringBuffer, input: player.input.buffer, moduleUrl: String(moduleUrl), verbose, audioRing: player.audioRing, audioLatencyMs,
       options: { ...layoutOptions(player.layout), ...gapOptions(0), melonds_threaded_renderer: threadedRenderer ? "enabled" : "disabled" },
     });
     return player;
@@ -37,6 +38,7 @@ export class VideoPlayer {
     this.canvas = canvas; this.container = container; this.onStatus = onStatus;
     this.renderer = new FrameRenderer(canvas, { backend });
     this.ringBuffer = createRingBuffer();
+    this.input = new InputState(); // Phase 5: read by the worker before each frame
     this.reader = new RingReader(this.ringBuffer);
     this.layout = "Top/Bottom";
     this.fit = { integer: true, smooth: false };
@@ -97,6 +99,14 @@ export class VideoPlayer {
     if (this.audio) for (const t of this.audio.getCaptureTracks()) stream.addTrack(t);
     return stream;
   }
+
+  // ---- input API (API_CONTRACT.md section 2; js/input.js) ----
+  button(name, down) { this.input.button(name, down); }
+  touchFromCanvas(nx, ny, state) { this.input.touchFromCanvas(nx, ny, state); }
+  attachKeyboard(el, map) { return this.input.attachKeyboard(el, map); }
+  attachGamepad(opts) { return this.input.attachGamepad(opts); }
+  /** Mouse / touch / pen on the canvas (Pointer Events); the contract has no name for it, `touchFromCanvas` is the primitive. */
+  attachPointer(el = this.canvas, opts) { return this.input.attachPointer(el, opts); }
 
   // ---- video API (API_CONTRACT.md section 2) ----
   #setOptions(set) { this.worker.postMessage({ type: "options", set }); }

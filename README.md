@@ -67,6 +67,11 @@ Pruebas: `npm test` (unitarias, incluye el anillo con hilo real y el remuestreo)
 `node tests/phase4-browser.mjs --minutes=3` (Chromium sin interfaz). ROM de prueba propia (CC0, sin contenido de Nintendo):
 `python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds` (necesita `gcc-arm-none-eabi`). Detalles en `tests/PHASE4_REPORT.md`.
 
+## Entrada (Fase 5)
+
+En la demo: flechas = cruceta · `Z`=A · `X`=B · `A`=X · `S`=Y · `Q`=L · `E`=R · `Enter`=Start · `V`=Select; mando estándar (botón derecho=A, inferior=B, superior=X, izquierdo=Y, LB/RB, Back/Start, cruceta o palanca izquierda); ratón/táctil sobre la imagen = pantalla táctil, en cualquier layout.
+Pruebas: `npm test` (unitarias, incluye `tests/touch.test.mjs` y `tests/input.test.mjs`) y `npm run test:input` (núcleo real en Node + Chromium sin interfaz). Ver `tests/PHASE5_REPORT.md`.
+
 ## Estado
 
 Fases 0-4 hechas: el núcleo corre en Wasm, el fotograma compuesto se dibuja en un canvas y el audio suena sincronizado. Sin entrada ni guardado todavía.

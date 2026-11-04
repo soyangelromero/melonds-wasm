@@ -73,7 +73,11 @@
         <button id="audioBtn" type="button">Activar audio</button>
         <p style="color:#9da7b3;margin:.4rem 0 0">A 2x / sin límite el audio se silencia (el reloj de audio solo marca el ritmo a 1x).</p>
       </fieldset>
-      <p style="color:#9da7b3">Entrada y guardado: aún no (fases 5-6).</p>
+      <fieldset>
+        <legend>Controles</legend>
+        <small style="color:#9da7b3">Flechas = cruceta · Z=A · X=B · A=X · S=Y · Q=L · E=R · Enter=Start · V=Select. Mando estándar: botón derecho=A, inferior=B, superior=X, izquierdo=Y, LB/RB=L/R, Back/Start, cruceta o palanca izquierda. Ratón/táctil sobre la imagen = pantalla táctil.</small>
+      </fieldset>
+      <p style="color:#9da7b3">Guardado: aún no (fase 6).</p>
     </aside>
     <main>
       <div id="stage"><canvas id="screen" width="256" height="384"></canvas></div>
@@ -85,6 +89,7 @@
         <dt>Emulador</dt><dd id="s-emu">—</dd>
         <dt>Dibujado</dt><dd id="s-draw">—</dd>
         <dt>Buffer circular</dt><dd id="s-ring">—</dd>
+        <dt>Entrada</dt><dd id="s-input">—</dd>
         <dt>Hilos 3D (workers pthread)</dt><dd id="s-workers">—</dd>
         <dt>AudioContext</dt><dd id="s-actx">—</dd>
         <dt>Buffer de audio</dt><dd id="s-abuf">—</dd>

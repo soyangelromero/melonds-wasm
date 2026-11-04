@@ -2,9 +2,11 @@
 // frame into the shared ring (js/frame-ring.js). Module worker; the main thread only draws.
 import { RingWriter } from "./frame-ring.js";
 import { AudioRingWriter } from "./audio-ring.js";
+import { InputReader } from "./input.js";
 
 const DS_FPS = 59.8261; // fallback; the real value comes from retro_get_system_av_info (mds_get_fps)
 let M = null, ring = null, running = false, speed = 1, loopToken = 0;
+let inputReader = null; // Phase 5: shared input state (js/input.js), read before every frame
 let wPtr = 0, hPtr = 0, sPtr = 0, strPtr = 0;
 let lastSerial = -1, lastGeomSerial = -1;
 // Audio (phase 4). `feeding` = the audio clock is the metronome: the AudioWorklet is alive (its heartbeat advances), speed is 1x
@@ -23,10 +25,11 @@ function setOption(key, value) {
 }
 const workerCount = () => (M?.PThread ? Object.keys(M.PThread.pthreads).length : -1);
 
-async function init({ ring: sab, audioRing, audioLatencyMs: lat, moduleUrl, verbose, options }) {
+async function init({ ring: sab, input, audioRing, audioLatencyMs: lat, moduleUrl, verbose, options }) {
   ring = new RingWriter(sab);
   if (audioRing) { aw = new AudioRingWriter(audioRing); aw.setPaused(true); }
   if (lat) audioLatencyMs = lat;
+  if (input) inputReader = new InputReader(input);
   const { default: createModule } = await import(moduleUrl);
   M = await createModule({
     print: (t) => post({ type: "log", level: "info", text: String(t) }),
@@ -48,6 +51,13 @@ function loadRom(bytes) {
   srcRate = M._mds_get_sample_rate() || srcRate;
   if (aw) { aw.setSourceRate(srcRate); aw.setTargetFrames(Math.round((audioLatencyMs / 1000) * srcRate)); }
   post({ type: "loaded", fps: M._mds_get_fps(), sampleRate: srcRate, workers: workerCount() });
+}
+
+function applyInput() {
+  if (!inputReader) return;
+  const s = inputReader.read();
+  M._mds_set_key_mask(s.mask);
+  M._mds_set_pointer(s.x, s.y, s.pressed ? 1 : 0);
 }
 
 function publishFrame() {
@@ -121,6 +131,7 @@ async function loop(token) {
 
 function stepFrame() {
   const t0 = performance.now();
+  applyInput(); // Phase 5: latch keys/pointer right before the frame that consumes them (also for debugBurst)
   M._mds_run_frame();
   publishFrame();
   drainAudio();

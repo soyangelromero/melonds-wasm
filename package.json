@@ -16,6 +16,7 @@
     "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds",
     "test:audio-core": "node tests/phase4-core-audio.mjs",
     "test:browser:audio": "node tests/phase4-browser.mjs --gl=swiftshader --minutes=3",
-    "build:tone-rom": "python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds"
+    "build:tone-rom": "python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds",
+    "test:input": "node tests/phase5-core.mjs tests/artifacts/nmap.nds && node tests/phase5-browser.mjs tests/artifacts/nmap.nds"
   }
 }
