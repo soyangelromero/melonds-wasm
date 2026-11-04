@@ -1,6 +1,7 @@
 // Emulation worker: owns the wasm module, runs mds_run_frame at the console's pace and publishes each new composed
 // frame into the shared ring (js/frame-ring.js). Module worker; the main thread only draws.
 import { RingWriter } from "./frame-ring.js";
+import { cheatHandlers } from "./cheats-worker.js"; // Phase 8
 
 const DS_FPS = 59.8261; // fallback; the real value comes from retro_get_system_av_info (mds_get_fps)
 let M = null, ring = null, running = false, speed = 1, loopToken = 0;
@@ -87,6 +88,7 @@ const handlers = {
   init, loadRom: ({ rom }) => loadRom(rom),
   options: ({ set }) => { for (const [k, v] of Object.entries(set)) setOption(k, v); },
   start, pause: stop, resume: start,
+  ...cheatHandlers(() => M), // Phase 8: cheat, cheatClear
   speed: ({ value }) => { speed = value; },
   dispose: () => { stop(); if (M) M._mds_destroy(); post({ type: "disposed" }); },
 };

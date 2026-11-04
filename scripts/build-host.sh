@@ -14,6 +14,7 @@ EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' 
 EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_malloc,_free"
 
 em++ core/host/host.cpp \
+  core/host/cheats.cpp \
   -Ibuild/melonds/_deps/libretro-common-src/include \
   -O2 \
   -pthread \

@@ -13,6 +13,7 @@
     "serve": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
-    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds"
+    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds",
+    "test:cheats": "node --test tests/cheats.test.mjs tests/cheats-memory.test.mjs"
   }
 }
