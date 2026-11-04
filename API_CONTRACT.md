@@ -57,11 +57,14 @@ class MelonDS {
   setPostProcess(shader: { glsl: string } | null): void; // filtro opcional (WebGL2); null = nítido. `glsl` es un fragmento GLSL ES 3.00 que define `vec4 mds_post(vec2 uv)` (uv 0..1, y hacia abajo, sobre el fotograma mostrado) y puede usar `mds_fetch(uv)` (RGBA ya convertido y rotado), `u_size` y `u_frameSize`. Si no compila se conserva el filtro anterior y se devuelve {ok:false,error} (Fase 3; el contrato `void` se mantiene en la clase final lanzando Error). Canvas2D no admite filtros
   screenshot(): Promise<Blob>;              // PNG del lienzo; Error("NO_CANVAS") en modo headless
   getFrame(): { width: number; height: number; stride: number; rotation: 0|1|2|3; format: "XRGB8888"; data: Uint8Array }; // fotograma compuesto por el núcleo, SIN rotar; data.length === stride * height y `stride` puede incluir padding. `rotation` (añadido en la Fase 3): giros de 90° antihorarios que el anfitrión debe aplicar (layouts Rotated Left/Right y Upside Down); el canvas ya los aplica y su tamaño es el del fotograma rotado
-  captureStream(fps?: number): MediaStream; // vídeo + audio para WebRTC; exige canvas visible
+  captureStream(fps?: number): MediaStream; // vídeo (canvas.captureStream) + audio (MediaStreamAudioDestinationNode) en un solo MediaStream; exige canvas visible y audio ya iniciado (si no, Error code "AUDIO_NOT_STARTED"); el audio sale ANTES del volumen/silencio locales
 
-  // --- audio ---
-  setVolume(v: number): void;  // 0..1
-  setMuted(m: boolean): void;
+  // --- audio (Fase 4) ---
+  setVolume(v: number): void;  // 0..1 (RangeError fuera de rango); lineal, con rampa de ~50 ms (GainNode.setTargetAtTime), sin chasquidos
+  setMuted(m: boolean): void;  // mismo GainNode; recuerda el volumen. No afecta a captureStream(): un invitado WebRTC sigue oyendo
+  // El AudioContext se crea y se reanuda tras el primer gesto del usuario (pointerdown/keydown/touchend/click, o
+  // navigator.userActivation.hasBeenActive); antes de eso el emulador corre con temporizador y descarta el audio.
+  // A 1x el reloj de audio es el metrónomo del emulador. A 2x/sin límite el audio se SILENCIA (decisión, ver DEVIATIONS).
 
   // --- entrada ---
   button(b: Button, down: boolean, player?: 0): void;
@@ -84,6 +87,10 @@ class MelonDS {
 
   // --- estadísticas ---
   getStats(): { fps: number; emuMs: number; renderMs: number; audioBufferMs: number; threads: boolean };
+  // audioBufferMs (Fase 4) = audio emulado pendiente de reproducir en el anillo compartido, en ms (instantáneo: oscila entre el
+  // objetivo, 80 ms por defecto, y objetivo + 16,7 ms). La implementación de la Fase 4 (VideoPlayer.getStats()) añade además
+  // `audio: { fillFrames, bufferMs, sourceRate, contextRate, mode, underrunEvents, underrunFrames, overrunFrames, overrunEvents,
+  //   trimmedFrames, catchupFrames, sumSq, framesOut, nonZeroFrames, peak, maxJump, contextState, outputLatencyMs }`.
 
   // --- eventos ---
   on(event: "frame"|"ready"|"error"|"paused"|"resumed", cb: Function): () => void;
@@ -251,7 +258,9 @@ mds_load_rom(ptr,len,save_ptr,save_len) -> int (0 = ok)
 mds_run_frame()                     // un fotograma; usado por el bucle del worker
 mds_get_frame(unsigned *width, unsigned *height, size_t *stride) -> const void* // fotograma compuesto XRGB8888; válido hasta el siguiente mds_run_frame
 mds_copy_frame(void *dst, size_t dst_len, unsigned *width, unsigned *height, size_t *stride) -> size_t
-mds_get_audio(ptr,max_samples) -> n // PCM estéreo 16 bit @ 32768 Hz
+mds_get_audio(int16_t *dst, size_t max_frames) -> n   // REAL (Fase 4): PCM estéreo 16 bit intercalado (L,R); unidad = FOTOGRAMAS estéreo (un par), no valores int16; frecuencia = mds_get_sample_rate() = 33513982/1024 = 32728,498 Hz (NO 32768; constants.hpp SAMPLE_RATE). ~547 fotogramas por mds_run_frame (546..548); máximo 2048
+mds_get_audio_available() / mds_flush_audio()          // REAL (Fase 4): pendientes en el anillo del anfitrión (8192 fotogramas) / descartarlos
+mds_get_audio_frames_total() / _overruns() / _underruns() / _batches() / _singles()   // REAL (Fase 4): overruns = fotogramas DESCARTADOS (anillo lleno: se tiran los más nuevos); underruns = llamadas a mds_get_audio que encontraron menos de lo pedido; singles = 0 siempre (el núcleo no usa retro_audio_sample)
 mds_set_key_mask(mask) / mds_set_pointer(nx,ny,pressed) // nx,ny normalizados -32767..32767 en el espacio del fotograma; el núcleo resuelve el layout
 mds_get_save(ptr_out,len_out) / mds_set_save(ptr,len)
 mds_save_state(ptr_out,len_out) / mds_load_state(ptr,len)

@@ -102,8 +102,8 @@ Decisiones clave:
   `nds.TouchScreen`). El anfitrión solo debe responder a `RETRO_DEVICE_POINTER` con la posición normalizada
   (`-32767..32767`) y el estado de pulsación. `touchFromCanvas(nx, ny, state)` normaliza respecto al rectángulo dibujado del
   fotograma. No hay `touch(x, y)` en coordenadas DS: exigiría la inversa del mapeo de layout, que el núcleo no expone.
-- **Audio:** AudioWorklet con un buffer circular alimentado por el worker (32 kHz nativo de DS, remuestreo).
-  El reloj de audio sirve de metrónomo para el límite de velocidad.
+- **Audio:** AudioWorklet con un buffer circular alimentado por el worker (frecuencia nativa que anuncia el núcleo: 32728,498 Hz, no
+  32768; remuestreo cúbico a la del AudioContext). El reloj de audio sirve de metrónomo a 1x (Fase 4, ver `tests/PHASE4_REPORT.md`).
 - **Velocidad:** un único controlador de ritmo (frame pacing) en el worker: x1 sincronizado con el audio/refresco,
   xN con tope, "máx" sin tope. Sin depender de `requestAnimationFrame` (se frena en pestañas en segundo plano).
 - **Firmware:** por defecto el que genera melonDS DS (fork del motor: `src/SPI_Firmware.cpp` para el firmware

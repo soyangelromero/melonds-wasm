@@ -13,6 +13,9 @@
     "serve": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
-    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds"
+    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds",
+    "test:audio-core": "node tests/phase4-core-audio.mjs",
+    "test:browser:audio": "node tests/phase4-browser.mjs --gl=swiftshader --minutes=3",
+    "build:tone-rom": "python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds"
   }
 }

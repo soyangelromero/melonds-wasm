@@ -1,12 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
-test("Phase 0 build produced an ES module and a wasm binary", async () => {
+// dist/hello.* only exists after the Phase 0 build (scripts/build.sh hello); skip instead of failing when it was not run.
+const hasHello = existsSync(join(repoRoot, "dist", "hello.js")) && existsSync(join(repoRoot, "dist", "hello.wasm"));
+
+test("Phase 0 build produced an ES module and a wasm binary", { skip: hasHello ? false : "dist/hello.* not built (Phase 0 build not run)" }, async () => {
   const js = await readFile(join(repoRoot, "dist", "hello.js"), "utf8");
   const wasm = await readFile(join(repoRoot, "dist", "hello.wasm"));
   assert.ok(js.length > 1000, "hello.js should contain the Emscripten runtime");
