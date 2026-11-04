@@ -21,6 +21,8 @@ async function loadRom(file) {
     player = await VideoPlayer.create({
       canvas, container: $("stage"), moduleUrl: new URL("../dist/melonds.js", import.meta.url),
       backend: $("canvas2d").checked ? "canvas2d" : "auto", threadedRenderer: $("threaded").checked,
+      audioLatencyMs: +$("latency").value, audioIgnoreActivation: params.get("autoplay") === "1",
+      audioCapture: params.get("capture") === "1", audioSampleRate: params.get("audiorate") ? +params.get("audiorate") : undefined,
       onStatus: (m) => { if (m.level === "err" && /error|abort/i.test(m.text)) console.warn(m.text); },
     });
     player.on("error", (e) => say(`${e.code ?? "error"}: ${e.message}`, true));
@@ -28,6 +30,7 @@ async function loadRom(file) {
     player.setLayout($("layout").value); player.setScreenGap(+$("gap").value); player.setHybridSmallScreen($("hybrid").value);
     applyFilter(); player.setScaling({ integer: $("integer").checked, smooth: $("smooth").checked });
     player.setSpeed(+$("speed").value);
+    player.setVolume(+$("volume").value / 100); player.setMuted($("mute").checked);
     await player.loadRom(rom);
     player.start();
     $("pause").disabled = $("shot").disabled = false;
@@ -52,6 +55,10 @@ $("filter").addEventListener("change", applyFilter);
 $("applyGlsl").addEventListener("click", applyFilter);
 const scaling = () => player?.setScaling({ integer: $("integer").checked, smooth: $("smooth").checked });
 $("integer").addEventListener("change", scaling); $("smooth").addEventListener("change", scaling);
+$("volume").addEventListener("input", () => { $("volOut").textContent = $("volume").value; player?.setVolume(+$("volume").value / 100); });
+$("mute").addEventListener("change", () => player?.setMuted($("mute").checked));
+$("latency").addEventListener("input", () => { $("latOut").textContent = $("latency").value; });
+$("audioBtn").addEventListener("click", () => player?.unlockAudio());
 $("speed").addEventListener("change", () => player?.setSpeed(+$("speed").value));
 $("pause").addEventListener("click", () => {
   const paused = $("pause").dataset.paused === "1";
@@ -69,7 +76,16 @@ setInterval(() => {
   $("s-draw").textContent = `${s.drawFps.toFixed(1)} fps · ${s.drawnFrames} dibujados`;
   $("s-ring").textContent = `publicados ${s.ring.published} · consumidos ${s.ring.consumed} · descartados ${s.ring.dropped}`;
   $("s-workers").textContent = String(s.workers);
+  const a = s.audio;
+  if (a) {
+    $("s-actx").textContent = `${a.contextState} · ${a.contextRate || "—"} Hz (núcleo ${a.sourceRate.toFixed(1)} Hz) · salida ≈${a.outputLatencyMs.toFixed(0)} ms · ${s.audioFeeding ? "reloj de audio = metrónomo" : "ritmo por temporizador (audio descartado)"}`;
+    $("s-abuf").textContent = `${a.bufferMs.toFixed(1)} ms (objetivo ${(a.targetFrames / a.sourceRate * 1000).toFixed(0)} ms) · estado ${["cebando", "sonando", "sin datos"][a.mode]}`;
+    $("s-aerr").textContent = `underruns ${a.underrunEvents} (${a.underrunFrames} muestras de silencio) · overruns ${a.overrunFrames} (descartadas) + ${a.trimmedFrames} (recortadas) · acelerado ${a.catchupFrames}`;
+    const lvl = a.framesOut ? Math.sqrt(a.sumSq / a.framesOut) : 0;
+    $("s-alevel").textContent = `RMS acumulado ${lvl.toFixed(4)} · pico ${a.peak.toFixed(3)} · máx. salto ${a.maxJump.toFixed(3)}`;
+  }
 }, 500);
 
 // Test hook (read-only helpers for tests/phase3-browser.mjs).
 window.__demo = { player: null, canvas };
+$("s-coi").title = "audio: ?autoplay=1 ignora la política de autoplay (solo pruebas); ?capture=1 activa el anillo de captura del worklet (solo pruebas)";

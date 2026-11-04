@@ -1,25 +1,33 @@
 // Main-thread side of the Phase 3 video path: spawns the emulation worker, draws the newest ring frame on every
 // requestAnimationFrame into the visible canvas (so captureStream() / screenshots work), and exposes the video
 // part of API_CONTRACT.md (setLayout, setScreenGap, setHybridSmallScreen, setPostProcess, getFrame).
-// It is NOT the final MelonDS class (Phase 10): audio, input and saves are TODO(phase 4-6).
+// Phase 4 adds audio (js/audio-output.js, js/audio-ring.js), setVolume/setMuted and captureStream().
+// It is NOT the final MelonDS class (Phase 10): input and saves are TODO(phase 5-6).
 import { createRingBuffer, RingReader } from "./frame-ring.js";
 import { FrameRenderer, fitCanvas, SCANLINES } from "./renderer.js";
+import { createAudioRingBuffer, DEFAULT_CAPACITY_FRAMES, createCaptureBuffer } from "./audio-ring.js";
+import { AudioOutput } from "./audio-output.js";
 import { layoutOptions, gapOptions, hybridSmallScreenOptions } from "./layouts.js";
 
 export { SCANLINES } from "./renderer.js";
 export { LAYOUTS as LAYOUT_LABELS } from "./layouts.js";
 
 export class VideoPlayer {
-  static async create({ canvas, container = canvas.parentElement, moduleUrl, workerUrl = new URL("./emu-worker.js", import.meta.url), backend = "auto", verbose = false, threadedRenderer = true, onStatus = () => {} }) {
+  static async create({ canvas, container = canvas.parentElement, moduleUrl, workerUrl = new URL("./emu-worker.js", import.meta.url), backend = "auto", verbose = false, threadedRenderer = true, onStatus = () => {}, audio = true, audioLatencyMs = 80, audioSampleRate, audioCapture = false, audioIgnoreActivation = false }) {
     if (!self.crossOriginIsolated || typeof SharedArrayBuffer === "undefined") {
       throw Object.assign(new Error("SharedArrayBuffer unavailable: serve with COOP: same-origin and COEP: require-corp (scripts/serve.mjs)"), { code: "NO_THREADS" });
     }
     const player = new VideoPlayer(canvas, container, backend, onStatus);
+    if (audio) {
+      player.audioRing = createAudioRingBuffer(DEFAULT_CAPACITY_FRAMES);
+      player.audioCaptureRing = audioCapture ? createCaptureBuffer() : null; // tests only
+      player.audio = new AudioOutput({ ring: player.audioRing, sampleRate: audioSampleRate, capture: player.audioCaptureRing, ignoreActivation: audioIgnoreActivation, onError: (e) => player.#fail(e) });
+    }
     player.worker = new Worker(workerUrl, { type: "module", name: "melonds-emu" });
     player.worker.onmessage = (e) => player.#onMessage(e.data);
     player.worker.onerror = (e) => player.#fail(new Error(e.message || "worker error"));
     await player.#call({
-      type: "init", ring: player.ringBuffer, moduleUrl: String(moduleUrl), verbose,
+      type: "init", ring: player.ringBuffer, moduleUrl: String(moduleUrl), verbose, audioRing: player.audioRing, audioLatencyMs,
       options: { ...layoutOptions(player.layout), ...gapOptions(0), melonds_threaded_renderer: threadedRenderer ? "enabled" : "disabled" },
     });
     return player;
@@ -37,6 +45,7 @@ export class VideoPlayer {
     this.draw = { frames: 0, fps: 0, windowStart: performance.now(), windowFrames: 0, lastGeometrySerial: -1, resizes: 0 };
     this.lastFrame = null;
     this.running = false;
+    this.audio = null; this.audioRing = null; this.audioCaptureRing = null;
     this.tick = (now) => this.#raf(now);
     this.resizeObserver = typeof ResizeObserver === "function" && container ? new ResizeObserver(() => this.refit()) : null;
     this.resizeObserver?.observe(container);
@@ -63,12 +72,31 @@ export class VideoPlayer {
 
   // ---- lifecycle ----
   async loadRom(rom) { await this.#call({ type: "loadRom", rom }); }
-  start() { this.running = true; this.worker.postMessage({ type: "start" }); requestAnimationFrame(this.tick); }
-  pause() { this.worker.postMessage({ type: "pause" }); }
-  resume() { this.worker.postMessage({ type: "resume" }); }
+  start() {
+    this.running = true; this.paused = false;
+    this.audio?.start().catch(() => {}); // no-op if the context is not allowed yet: autoUnlock retries on the first gesture
+    this.worker.postMessage({ type: "start" }); requestAnimationFrame(this.tick);
+  }
+  pause() { this.paused = true; this.audio?.setPaused(true); this.worker.postMessage({ type: "pause" }); } // the worklet starts its 6 ms fade right away
+  resume() { this.paused = false; this.audio?.start().catch(() => {}); this.worker.postMessage({ type: "resume" }); }
   /** 1 = normal, 2/3/4... = faster, 0 = unlimited. */
   setSpeed(multiplier) { this.worker.postMessage({ type: "speed", value: multiplier }); }
-  async dispose() { this.running = false; this.resizeObserver?.disconnect(); await this.#call({ type: "dispose" }).catch(() => {}); this.worker.terminate(); }
+  async dispose() { this.running = false; await this.audio?.dispose(); this.resizeObserver?.disconnect(); await this.#call({ type: "dispose" }).catch(() => {}); this.worker.terminate(); }
+
+  // ---- audio API (API_CONTRACT.md section 2) ----
+  setVolume(v) { this.volumeValue = v; this.audio?.setVolume(v); }
+  setMuted(m) { this.mutedValue = !!m; this.audio?.setMuted(m); }
+  /** Resumes the AudioContext; call it from a click/key handler if the page wants to be explicit (autoUnlock does it on the first gesture). */
+  unlockAudio() { return this.audio?.start() ?? Promise.resolve(); }
+  /**
+   * Video (canvas.captureStream) + audio (MediaStreamAudioDestinationNode) in a single MediaStream, for WebRTC (phase 12).
+   * Needs the visible canvas of the main thread, and the audio started (after the first gesture). Local volume/mute do not affect it.
+   */
+  captureStream(fps = 60) {
+    const stream = new MediaStream(this.canvas.captureStream(fps).getVideoTracks());
+    if (this.audio) for (const t of this.audio.getCaptureTracks()) stream.addTrack(t);
+    return stream;
+  }
 
   // ---- video API (API_CONTRACT.md section 2) ----
   #setOptions(set) { this.worker.postMessage({ type: "options", set }); }
@@ -94,7 +122,10 @@ export class VideoPlayer {
   }
 
   getStats() {
-    return { emuFps: this.workerStats.fps, emuMs: this.workerStats.emuMs, drawFps: this.draw.fps, drawnFrames: this.draw.frames, canvasResizes: this.draw.resizes, ring: this.reader.stats, workers: this.workerStats.workers, backend: this.backend, frameCount: this.workerStats.frames, duplicated: this.workerStats.duplicated };
+    const a = this.audio?.getStats();
+    return {
+      audioBufferMs: a?.bufferMs ?? 0, audio: a ?? null, audioFeeding: this.workerStats.feeding ?? false, emuFps: this.workerStats.fps, emuMs: this.workerStats.emuMs, drawFps: this.draw.fps, drawnFrames: this.draw.frames, canvasResizes: this.draw.resizes, ring: this.reader.stats, workers: this.workerStats.workers, backend: this.backend, frameCount: this.workerStats.frames, duplicated: this.workerStats.duplicated,
+    };
   }
 
   #raf(now) {
