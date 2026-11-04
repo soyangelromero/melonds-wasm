@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 2: link the libretro host (core/host/host.cpp) with dist/libmelonDS.a into dist/melonds.js + .wasm.
+# Phase 2/3: link the libretro host (core/host/host.cpp) with dist/libmelonDS.a into dist/melonds.js + .wasm.
 # Run inside the pinned emsdk image (scripts/build.sh host).
 set -euo pipefail
 
@@ -11,7 +11,7 @@ if [[ ! -f dist/libmelonDS.a ]]; then
 fi
 
 EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' ! -path '*_CMakeLTOTest*' -print | tr '\n' ' ')"
-EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_get_frame_count,_mds_get_duplicated_frames,_malloc,_free"
+EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_malloc,_free"
 
 em++ core/host/host.cpp \
   -Ibuild/melonds/_deps/libretro-common-src/include \
@@ -31,7 +31,7 @@ em++ core/host/host.cpp \
   "-sMAXIMUM_MEMORY=1073741824" \
   "-sSTACK_SIZE=1048576" \
   "-sEXPORTED_FUNCTIONS=$EXPORTS" \
-  "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPU32,PThread" \
+  "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAPU32,HEAPF32,PThread" \
   -o dist/melonds.js \
   -Wl,--start-group dist/libmelonDS.a $EXTRA_ARCHIVES -Wl,--end-group
 

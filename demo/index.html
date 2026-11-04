@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>melonds-wasm · Fase 3 (vídeo)</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; margin: 0; background: #111; color: #eee; display: grid; grid-template-columns: 19rem 1fr; min-height: 100vh; }
+      aside { padding: 1rem; background: #181a1f; border-right: 1px solid #2b2f37; overflow-y: auto; font-size: .9rem; }
+      h1 { font-size: 1.05rem; margin: 0 0 .75rem; }
+      fieldset { border: 1px solid #2b2f37; border-radius: .4rem; margin: 0 0 .8rem; padding: .5rem .7rem; }
+      legend { color: #9da7b3; padding: 0 .3rem; }
+      label { display: block; margin: .35rem 0; }
+      select, input[type=range], button, textarea { width: 100%; box-sizing: border-box; }
+      textarea { height: 7rem; font: .75rem ui-monospace, monospace; background: #0d0f12; color: #cfd6e0; border: 1px solid #2b2f37; }
+      button { padding: .35rem; margin-top: .3rem; }
+      main { display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+      #stage { display: grid; place-items: center; background: #050505; min-height: 60vh; overflow: hidden; }
+      #screen { image-rendering: pixelated; background: #000; outline: 1px solid #333; }
+      dl { display: grid; grid-template-columns: max-content 1fr; gap: .15rem .8rem; margin: 0; padding: .6rem 1rem; font: .8rem ui-monospace, monospace; border-top: 1px solid #2b2f37; }
+      dt { color: #9da7b3; } dd { margin: 0; }
+      #msg { padding: .4rem 1rem; color: #ffa657; white-space: pre-wrap; }
+      .err { color: #ff7b72; }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>melonDS WASM · vídeo</h1>
+      <fieldset>
+        <legend>ROM (no se sube a ningún sitio)</legend>
+        <input id="rom" type="file" accept=".nds,.srl" />
+        <label><input id="threaded" type="checkbox" checked /> Renderizador 3D con hilos (al cargar)</label>
+        <label><input id="canvas2d" type="checkbox" /> Forzar Canvas2D (al cargar)</label>
+      </fieldset>
+      <fieldset>
+        <legend>Pantallas</legend>
+        <label>Layout <select id="layout"></select></label>
+        <label>Separación: <output id="gapOut">0</output> px <input id="gap" type="range" min="0" max="126" value="0" /></label>
+        <label>Híbrido, pantalla pequeña
+          <select id="hybrid"><option value="both">both (ambas)</option><option value="one">one (la opuesta)</option></select>
+        </label>
+      </fieldset>
+      <fieldset>
+        <legend>Imagen</legend>
+        <label>Filtro
+          <select id="filter"><option value="none">Nítido</option><option value="scanlines">scanlines</option><option value="custom">GLSL propio…</option></select>
+        </label>
+        <label><input id="integer" type="checkbox" checked /> Escala entera</label>
+        <label><input id="smooth" type="checkbox" /> Suavizado (CSS)</label>
+        <textarea id="glsl" hidden spellcheck="false">vec4 mds_post(vec2 uv) {
+  vec4 c = mds_fetch(uv);
+  float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+  return vec4(vec3(g), 1.0);   // escala de grises
+}</textarea>
+        <button id="applyGlsl" hidden>Aplicar GLSL</button>
+      </fieldset>
+      <fieldset>
+        <legend>Ejecución</legend>
+        <label>Velocidad
+          <select id="speed"><option value="1">1x (≈59,83 fps)</option><option value="2">2x</option><option value="0">Sin límite</option></select>
+        </label>
+        <button id="pause" disabled>Pausa</button>
+        <button id="shot" disabled>Captura PNG</button>
+      </fieldset>
+      <p style="color:#9da7b3">Audio, entrada y guardado: aún no (fases 4-6).</p>
+    </aside>
+    <main>
+      <div id="stage"><canvas id="screen" width="256" height="384"></canvas></div>
+      <div id="msg"></div>
+      <dl>
+        <dt>crossOriginIsolated</dt><dd id="s-coi">…</dd>
+        <dt>Backend de dibujo</dt><dd id="s-backend">—</dd>
+        <dt>Fotograma / rotación</dt><dd id="s-frame">—</dd>
+        <dt>Emulador</dt><dd id="s-emu">—</dd>
+        <dt>Dibujado</dt><dd id="s-draw">—</dd>
+        <dt>Buffer circular</dt><dd id="s-ring">—</dd>
+        <dt>Hilos 3D (workers pthread)</dt><dd id="s-workers">—</dd>
+      </dl>
+    </main>
+    <script type="module" src="./demo.js"></script>
+  </body>
+</html>

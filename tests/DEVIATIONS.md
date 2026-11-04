@@ -40,3 +40,16 @@ razón y el impacto. No se cambia el contrato en silencio.
 Prueba con ROM comercial (Pokémon Plata SoulSilver, española, sin subirla): 600 fotogramas con `--threads=1` y `--threads=0`, sin `Aborted`;
 hashes de los fotogramas 120/240/360/480/600 idénticos entre ambos modos y distintos entre sí salvo 480 y 600 (pantalla estática);
 1 worker con hilos y 0 sin ellos; 109 fps (hilos) y 124 fps (sin hilos) sin límite de velocidad, sin audio ni entrada. Escena de la intro, no es un benchmark.
+
+## Fase 3: vídeo
+
+| Fecha | Plan / instrucción | Realidad | Razón | Impacto |
+|---|---|---|---|---|
+| 2026-11-04 | `API_CONTRACT.md` §8 `mds_create(threads)` | `mds_create(verbose)` + opción `melonds_threaded_renderer` | Fase 2 (ya anotado): es la opción real del núcleo | **Contrato actualizado en la Fase 3** (§8) |
+| 2026-11-04 | SET_ROTATION era un no-op (aceptado sin hacer nada) | Se guarda y se **aplica en el renderizador**; `getFrame()` gana el campo `rotation` | `screenlayout.cpp:317`: con Rotated Left/Right y Upside Down el núcleo entrega la imagen Top/Bottom sin girar y espera que el anfitrión la gire (y gira él el puntero si devolvemos true). Si se aceptaba sin girar, se veía mal y el táctil habría quedado girado | Contrato actualizado (`getFrame.rotation`). El canvas tiene el tamaño del fotograma **rotado**; Fase 5: el puntero va en el espacio del canvas |
+| 2026-11-04 | `getFrame()` devuelve el fotograma que se está dibujando | `VideoPlayer.getFrame()` devuelve una **copia** del último fotograma dibujado en el hilo principal, no se llama a wasm | El wasm vive en el worker; el hilo principal solo ve el buffer circular | Sin impacto; `mds_get_frame`/`mds_copy_frame` existen para el worker |
+| 2026-11-04 | `setPostProcess(...): void` | La implementación del renderizador devuelve `{ok, error}` | Un GLSL inválido no debe fallar en silencio | Contrato actualizado (nota); la clase `MelonDS` final (Fase 10) puede lanzar `Error` en su lugar |
+| 2026-11-04 | «Suavizado opcional» en el shader | Suavizado = `image-rendering` CSS (`auto` vs `pixelated`) | El backing store es del tamaño del fotograma (requisito de coordenadas del puntero), así que el escalado lo hace el compositor del navegador; el filtro `scanlines` actúa a resolución nativa (1 de cada 2 filas) | Los filtros no pueden ser de mayor resolución que el fotograma. Para CRT «bonito» haría falta un canvas mayor y recalcular el puntero (no hecho) |
+| 2026-11-04 | WebGL con `SharedArrayBuffer` directo | `texImage2D` rechaza vistas sobre SAB, así que cada fotograma pasa por una copia a un `Uint8Array` normal antes de subirlo | Restricción de la especificación WebGL | 1 copia extra de ≤2,3 MB por fotograma (a 256x384: 393 KB) |
+| 2026-11-04 | `npm test` = `node --test tests/` | `node --test tests/*.test.mjs` | En Node 22 el argumento de directorio falla (`Cannot find module .../tests`); roto desde antes de la Fase 3 | `tests/phase0.test.mjs` sigue fallando (espera `dist/hello.*`, solo se genera con el build de la Fase 0) |
+| 2026-11-04 | La demo funciona sin aislamiento de origen cruzado | Sin COOP/COEP la demo muestra un error claro y no arranca | `dist/melonds.wasm` se compila con `-pthread` (memoria compartida); sin `SharedArrayBuffer` no instancia. La variante `-st` es Fase 10 | Hay que servir con `npm run serve` |

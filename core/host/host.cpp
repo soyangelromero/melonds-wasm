@@ -1,5 +1,6 @@
 // Minimal libretro frontend for the melonDS DS core, exposed as the mds_* C API (API_CONTRACT.md section 8).
-// Phase 2 scope: create / load / run / frame. Audio, input and saves are neutral stubs (TODO phase 3-5).
+// Phase 2: create / load / run / frame. Phase 3: geometry (SET_GEOMETRY / SET_SYSTEM_AV_INFO), rotation (SET_ROTATION)
+// and frame serials. Audio, input and saves are neutral stubs (TODO phase 4-6).
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
@@ -19,6 +20,13 @@ namespace {
 constexpr const char *kSystemDir = "/system";
 constexpr const char *kSaveDir = "/save";
 
+// What the core last told us about its video output (retro_game_geometry + timing). The *frame* size
+// that actually arrives in videoCb is authoritative; this is what the core announces it will deliver.
+struct Geometry {
+  unsigned baseWidth = 0, baseHeight = 0, maxWidth = 0, maxHeight = 0;
+  float aspect = 0.f;
+};
+
 struct Host {
   std::map<std::string, std::string> options;
   bool optionsDirty = false;
@@ -26,6 +34,12 @@ struct Host {
   unsigned width = 0;
   unsigned height = 0;
   size_t stride = 0;
+  unsigned rotation = 0;       // frontend rotation requested by the core (SET_ROTATION): 0, 1=90 CCW, 2=180, 3=270 CCW
+  unsigned frameRotation = 0;  // rotation in force when `frame` was delivered
+  Geometry geometry;
+  double fps = 0, sampleRate = 0;
+  uint32_t geometrySerial = 0;  // bumped on every SET_GEOMETRY / SET_SYSTEM_AV_INFO
+  uint32_t frameSerial = 0;     // bumped on every videoCb with data != NULL (a new, different-or-equal frame)
   uint64_t frameCount = 0;
   uint64_t duplicatedFrames = 0;
   uint64_t audioFrames = 0;
@@ -92,8 +106,27 @@ bool environmentCb(unsigned cmd, void *data) {
       *static_cast<bool *>(data) = H.optionsDirty;
       H.optionsDirty = false;
       return true;
-    case RETRO_ENVIRONMENT_SET_GEOMETRY:
-    case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
+    case RETRO_ENVIRONMENT_SET_GEOMETRY: {
+      // core.cpp:233 sends this whenever the screen layout / gap changes; the max size never changes with it.
+      auto *g = static_cast<const retro_game_geometry *>(data);
+      H.geometry = {g->base_width, g->base_height, g->max_width, g->max_height, g->aspect_ratio};
+      ++H.geometrySerial;
+      return true;
+    }
+    case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO: {
+      auto *av = static_cast<const retro_system_av_info *>(data);
+      const retro_game_geometry &g = av->geometry;
+      H.geometry = {g.base_width, g.base_height, g.max_width, g.max_height, g.aspect_ratio};
+      H.fps = av->timing.fps;
+      H.sampleRate = av->timing.sample_rate;
+      ++H.geometrySerial;
+      return true;
+    }
+    case RETRO_ENVIRONMENT_SET_ROTATION:
+      // screenlayout.cpp:317: the rotated layouts hand us the Top/Bottom image and expect the FRONTEND to rotate it
+      // (and rotate the pointer matrix themselves once we return true). So the renderer must apply this value.
+      H.rotation = *static_cast<const unsigned *>(data) & 3u;
+      return true;
     case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY:
     case RETRO_ENVIRONMENT_SET_CORE_OPTIONS_UPDATE_DISPLAY_CALLBACK:
     case RETRO_ENVIRONMENT_SET_CONTROLLER_INFO:
@@ -104,7 +137,6 @@ bool environmentCb(unsigned cmd, void *data) {
     case RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME:
     case RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK:
     case RETRO_ENVIRONMENT_SET_PROC_ADDRESS_CALLBACK:
-    case RETRO_ENVIRONMENT_SET_ROTATION:
       return true;
     case RETRO_ENVIRONMENT_SET_MESSAGE:
       std::fprintf(stderr, "[core MSG] %s\n", static_cast<const retro_message *>(data)->msg);
@@ -160,6 +192,8 @@ void videoCb(const void *data, unsigned width, unsigned height, size_t pitch) {
   H.stride = pitch;
   H.frame.resize(pitch * height);
   std::memcpy(H.frame.data(), data, pitch * height);
+  H.frameRotation = H.rotation;
+  ++H.frameSerial;
 }
 
 // TODO(phase 4): push samples into a ring buffer for mds_get_audio.
@@ -233,6 +267,13 @@ EMSCRIPTEN_KEEPALIVE int mds_load_rom(const uint8_t *rom, size_t len, const uint
   info.size = len;
   if (!retro_load_game(&info)) return -3;
   H.loaded = true;
+  retro_system_av_info av{};  // initial geometry and timing; later changes arrive through the environment callback
+  retro_get_system_av_info(&av);
+  const retro_game_geometry &g = av.geometry;
+  H.geometry = {g.base_width, g.base_height, g.max_width, g.max_height, g.aspect_ratio};
+  H.fps = av.timing.fps;
+  H.sampleRate = av.timing.sample_rate;
+  ++H.geometrySerial;
   return 0;
 }
 
@@ -250,6 +291,35 @@ EMSCRIPTEN_KEEPALIVE const void *mds_get_frame(unsigned *width, unsigned *height
   *stride = H.stride;
   return H.frame.data();
 }
+
+// Copies the last frame into dst keeping the core's pitch (rows `*stride` bytes apart). Returns the bytes copied,
+// or 0 if there is no frame or dst_len is too small (then *width/*height/*stride still say how much is needed).
+EMSCRIPTEN_KEEPALIVE size_t mds_copy_frame(void *dst, size_t dst_len, unsigned *width, unsigned *height, size_t *stride) {
+  if (H.frame.empty()) return 0;
+  *width = H.width;
+  *height = H.height;
+  *stride = H.stride;
+  if (dst_len < H.frame.size()) return 0;
+  std::memcpy(dst, H.frame.data(), H.frame.size());
+  return H.frame.size();
+}
+
+// Counts frames the core really delivered (videoCb with data != NULL). If it did not change after mds_run_frame,
+// the core asked to repeat the previous frame and there is nothing new to publish.
+EMSCRIPTEN_KEEPALIVE uint32_t mds_get_frame_serial() { return H.frameSerial; }
+// Rotation (0..3, 90 degrees CCW each) the frontend must apply to the frame returned by mds_get_frame.
+EMSCRIPTEN_KEEPALIVE unsigned mds_get_frame_rotation() { return H.frameRotation; }
+EMSCRIPTEN_KEEPALIVE uint32_t mds_get_geometry_serial() { return H.geometrySerial; }
+// Geometry announced by the core (retro_game_geometry). aspect is width/height as the core wants it displayed.
+EMSCRIPTEN_KEEPALIVE void mds_get_geometry(unsigned *baseW, unsigned *baseH, unsigned *maxW, unsigned *maxH, float *aspect) {
+  *baseW = H.geometry.baseWidth;
+  *baseH = H.geometry.baseHeight;
+  *maxW = H.geometry.maxWidth;
+  *maxH = H.geometry.maxHeight;
+  *aspect = H.geometry.aspect;
+}
+EMSCRIPTEN_KEEPALIVE double mds_get_fps() { return H.fps; }
+EMSCRIPTEN_KEEPALIVE double mds_get_sample_rate() { return H.sampleRate; }
 
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_frame_count() { return H.frameCount; }
 EMSCRIPTEN_KEEPALIVE uint64_t mds_get_duplicated_frames() { return H.duplicatedFrames; }

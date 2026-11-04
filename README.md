@@ -50,9 +50,18 @@ dist/        artefactos generados (ignorados por git)
 third_party/ submódulo melonDS DS v1.4.0
 ```
 
+## Demo de vídeo (Fase 3)
+
+```bash
+npm run serve            # http://127.0.0.1:8080/demo/index.html  (con COOP/COEP)
+```
+Elige un `.nds` propio con el selector (no se sube a ningún sitio): layouts, separación, filtro y escala. Requiere `dist/` compilado
+(`bash scripts/build-core.sh && bash scripts/build-host.sh`) y un navegador con Wasm EH y `SharedArrayBuffer` (Chrome/Edge/Firefox recientes).
+Pruebas en Chromium sin interfaz: `npm run test:browser` (ver `tests/PHASE3_REPORT.md`).
+
 ## Estado
 
-Fase 0: esqueleto, toolchain y «hola mundo». Todavía no se emula ninguna ROM.
+Fases 0-3 hechas: el núcleo corre en Wasm, el fotograma compuesto se dibuja en un canvas. Sin audio, entrada ni guardado todavía.
 
 ## Licencia
 

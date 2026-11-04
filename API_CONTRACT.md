@@ -54,9 +54,9 @@ class MelonDS {
   setLayout(l: Layout): void;               // traduce la etiqueta a la clave del núcleo (tabla 2.1) y fija melonds_screen_layout1 + melonds_number_of_screen_layouts=1; el núcleo emite la nueva geometría
   setScreenGap(px: number): void;           // 0..126
   setHybridSmallScreen(s: "one" | "both"): void; // one = mostrar la pantalla opuesta; both = mostrar ambas (antiguo "Duplicate")
-  setPostProcess(shader: { glsl: string } | null): void; // filtro opcional (WebGL2); null = nítido
+  setPostProcess(shader: { glsl: string } | null): void; // filtro opcional (WebGL2); null = nítido. `glsl` es un fragmento GLSL ES 3.00 que define `vec4 mds_post(vec2 uv)` (uv 0..1, y hacia abajo, sobre el fotograma mostrado) y puede usar `mds_fetch(uv)` (RGBA ya convertido y rotado), `u_size` y `u_frameSize`. Si no compila se conserva el filtro anterior y se devuelve {ok:false,error} (Fase 3; el contrato `void` se mantiene en la clase final lanzando Error). Canvas2D no admite filtros
   screenshot(): Promise<Blob>;              // PNG del lienzo; Error("NO_CANVAS") en modo headless
-  getFrame(): { width: number; height: number; stride: number; format: "XRGB8888"; data: Uint8Array }; // fotograma compuesto por el núcleo; data.length === stride * height y `stride` puede incluir padding
+  getFrame(): { width: number; height: number; stride: number; rotation: 0|1|2|3; format: "XRGB8888"; data: Uint8Array }; // fotograma compuesto por el núcleo, SIN rotar; data.length === stride * height y `stride` puede incluir padding. `rotation` (añadido en la Fase 3): giros de 90° antihorarios que el anfitrión debe aplicar (layouts Rotated Left/Right y Upside Down); el canvas ya los aplica y su tamaño es el del fotograma rotado
   captureStream(fps?: number): MediaStream; // vídeo + audio para WebRTC; exige canvas visible
 
   // --- audio ---
@@ -242,7 +242,10 @@ Nombres sugeridos para las funciones C exportadas (prefijo `mds_`); el implement
 la sección 2 no cambie:
 
 ```
-mds_create(threads) / mds_destroy
+mds_create(verbose) / mds_destroy      // REAL (Fase 2): verbose = 0|1; los hilos del renderizador 3D se eligen con mds_set_option("melonds_threaded_renderer","enabled"|"disabled") ANTES de mds_load_rom
+mds_set_option(key,value)               // REAL: opciones del núcleo (melonds_*); los cambios se aplican en el siguiente mds_run_frame
+mds_get_frame_serial() / mds_get_frame_rotation()   // REAL (Fase 3): serial estable si el núcleo repitió fotograma (data==NULL); rotación 0..3 a aplicar
+mds_get_geometry(&bw,&bh,&mw,&mh,&aspect) / mds_get_geometry_serial() / mds_get_fps() / mds_get_sample_rate()  // REAL (Fase 3): lo anunciado por SET_GEOMETRY / SET_SYSTEM_AV_INFO / retro_get_system_av_info
 mds_set_firmware(ptr,len,flags,...) / mds_set_bios(ptr7,len7,ptr9,len9)
 mds_load_rom(ptr,len,save_ptr,save_len) -> int (0 = ok)
 mds_run_frame()                     // un fotograma; usado por el bucle del worker

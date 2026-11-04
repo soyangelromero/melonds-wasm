@@ -5,9 +5,14 @@
   "type": "module",
   "description": "melonDS DS v1.4.0 ported to WebAssembly with a minimal libretro host",
   "license": "GPL-3.0",
+  "devDependencies": {
+    "playwright": "1.63.0"
+  },
   "scripts": {
     "build": "node -e \"console.error('Use scripts/build.ps1 (Windows) or scripts/build.sh (POSIX)')\" && exit 1",
     "serve": "node scripts/serve.mjs",
-    "test": "node --test tests/"
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
+    "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds"
   }
 }

@@ -112,6 +112,6 @@ if (isMain) {
   const server = createStaticServer({ root });
   server.listen(port, host, () => {
     console.log(`Serving ${root}`);
-    console.log(`http://${host}:${port}/demo/hello.html`);
+    console.log(`http://${host}:${port}/demo/index.html`);
   });
 }
