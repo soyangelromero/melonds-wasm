@@ -1,6 +1,6 @@
 {
   "name": "melonds-wasm",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "melonDS DS v1.4.0 ported to WebAssembly with a minimal libretro host",
@@ -11,7 +11,18 @@
   "scripts": {
     "build": "node -e \"console.error('Use scripts/build.ps1 (Windows) or scripts/build.sh (POSIX)')\" && exit 1",
     "serve": "node scripts/serve.mjs",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-force-exit tests/*.test.mjs",
+    "test:library": "node tests/library-browser.mjs",
+    "test:library-fallback": "node tests/library-fallback-browser.mjs",
+    "test:phase7": "node tests/phase7-browser.mjs",
+    "test:coi": "node tests/coi-sw-browser.mjs",
+    "test:bench": "node tests/bench-browser.mjs",
+    "test:bench:quick": "node tests/bench-browser.mjs --quick",
+    "test:decimation": "node tests/decimation-browser.mjs",
+    "test:fallback-emulatorjs": "node tests/fallback-emulatorjs-browser.mjs",
+    "test:fsa": "node tests/fsa-saves-browser.mjs",
+    "test:remote": "node tests/hub-remote-smoke.mjs",
+    "check:clean": "node scripts/check-clean.mjs",
     "test:browser": "node tests/phase3-browser.mjs tests/artifacts/nmap.nds",
     "test:layouts": "node tests/phase3-layouts.mjs tests/artifacts/nmap.nds",
     "test:audio-core": "node tests/phase4-core-audio.mjs",
@@ -22,6 +33,16 @@
     "test:saves-browser": "node tests/phase6-browser.mjs",
     "build:integration-rom": "python3 tests/homebrew/integration/mkrom.py tests/artifacts/integration.nds",
     "test:integration": "node tests/integration-browser.mjs --gl=swiftshader",
-    "test:cheats": "node --test tests/cheats.test.mjs tests/cheats-memory.test.mjs"
+    "test:webapp": "node tests/phase11-browser.mjs",
+    "test:netplay": "node tests/phase12-browser.mjs",
+    "package": "node scripts/package.mjs",
+    "test:cheats": "node --test tests/cheats.test.mjs tests/cheats-memory.test.mjs",
+    "patch:memory": "node scripts/raise-memory-limit.mjs",
+    "test:remote:tunnel": "node tests/remote-tunnel-browser.mjs",
+    "test:memory-limit": "node --test --test-force-exit tests/memory-limit.test.mjs",
+    "test:cross-browser": "node tests/cross-browser-smoke.mjs",
+    "release": "node scripts/release.mjs",
+    "test:release": "node --test --test-force-exit tests/release.test.mjs",
+    "test:third-party": "node tests/third-party-release.mjs"
   }
 }

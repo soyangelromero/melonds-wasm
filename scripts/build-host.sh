@@ -10,6 +10,12 @@ if [[ ! -f dist/libmelonDS.a ]]; then
   exit 1
 fi
 
+# Memory (PROGRESO.md 10.6 / tests/library-browser.mjs): the 512 MB ROM (Negra 2 / IRES) aborts with the old 1 GiB
+# cap because melonDS keeps ~3 copies of the ROM in the wasm heap (mds_load_rom buffer + NDSCart::ParseROM copy +
+# CartRetail copy). 2 GiB leaves room for 3 x 512 MB plus the emulator itself; small ROMs still start at 256 MiB and
+# only grow on demand, so this costs nothing unless a big cartridge is loaded. While Docker/emsdk is unavailable you can
+# raise the cap of an ALREADY BUILT dist without recompiling with scripts/raise-memory-limit.mjs (temporary artifact
+# patch, NDS 4/4 verified); the rebuild below is the canonical fix and makes that script a no-op.
 EXTRA_ARCHIVES="$(find build/melonds -name '*.a' ! -name 'melondsds_libretro.a' ! -path '*_CMakeLTOTest*' -print | tr '\n' ' ')"
 EXPORTS="_mds_create,_mds_destroy,_mds_set_option,_mds_write_system_file,_mds_load_rom,_mds_run_frame,_mds_get_frame,_mds_copy_frame,_mds_get_frame_serial,_mds_get_frame_rotation,_mds_get_geometry_serial,_mds_get_geometry,_mds_get_fps,_mds_get_sample_rate,_mds_get_frame_count,_mds_get_duplicated_frames,_mds_get_audio,_mds_get_audio_available,_mds_flush_audio,_mds_get_audio_frames_total,_mds_get_audio_overruns,_mds_get_audio_underruns,_mds_get_audio_batches,_mds_get_audio_singles,_mds_set_key_mask,_mds_set_pointer,_mds_get_input_queries,_mds_get_core_abi,_mds_get_save_status,_mds_get_save,_mds_set_save,_mds_poll_save,_mds_save_state,_mds_load_state,_mds_cheat_set,_mds_cheat_clear,_mds_cheat_count,_mds_cheat_slot,_mds_cheat_enabled,_mds_ram_data,_mds_ram_size,_mds_heap_used,_malloc,_free"
 
@@ -29,7 +35,7 @@ em++ core/host/host.cpp core/host/saves.cpp \
   "-sENVIRONMENT=node,web,worker" \
   "-sALLOW_MEMORY_GROWTH=1" \
   "-sINITIAL_MEMORY=268435456" \
-  "-sMAXIMUM_MEMORY=1073741824" \
+  "-sMAXIMUM_MEMORY=2147483648" \
   "-sSTACK_SIZE=1048576" \
   "-sEXPORTED_FUNCTIONS=$EXPORTS" \
   "-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP16,HEAPU32,HEAPF32,PThread" \

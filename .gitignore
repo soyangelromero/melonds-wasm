@@ -3,6 +3,7 @@
 /build/
 /build-*/
 /out/
+/package/
 
 # Temporary emsdk cache and local tools
 /.emsdk/
@@ -43,3 +44,6 @@ nand.bin
 
 # npm lockfile is not versioned in this repo
 package-lock.json
+
+# Release bundle (generated)
+/release/
