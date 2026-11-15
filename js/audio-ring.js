@@ -31,6 +31,9 @@ export const CTRL = {
   CAPTURE_POS: 15,     // frames written to the capture ring
   OVERRUN_EVENTS: 16,  // producer calls that had to drop frames
   CAPACITY: 17,        // capacity in frames (power of two)
+  PLAY_RATE_MILLI: 18, // playback speed x1000 (1000 = real time, 2000 = fast-forward at 2x: twice as fast and an octave higher); 0 = 1000
+  DRC_MODE: 19,        // dynamic rate control: 0 = off, 1 = fast-forward only, 2 = always (also at 1x). Set by the worker
+  DRC_MILLI: 20,       // current DRC factor x1000 as applied by the consumer in the last quantum (1000 = no slowdown); 0 = not reported yet
 };
 export const ST = { SUMSQ: 0, FRAMES: 1, NONZERO: 2, PEAK: 3, MAXJUMP: 4 };
 export const MODE = { PRIMING: 0, PLAYING: 1, STARVED: 2 };
@@ -82,6 +85,10 @@ export class AudioRingWriter {
   setPaused(p) { Atomics.store(this.ctrl, CTRL.PAUSED, p ? 1 : 0); }
   get paused() { return Atomics.load(this.ctrl, CTRL.PAUSED) === 1; }
   get tick() { return Atomics.load(this.ctrl, CTRL.TICK); }
+  setPlayRate(x) { Atomics.store(this.ctrl, CTRL.PLAY_RATE_MILLI, Math.round(x * 1000)); }
+  /** 0 = off, 1 = fast-forward only, 2 = always (also at 1x). See js/audio-playback.js. */
+  setDrcMode(mode) { Atomics.store(this.ctrl, CTRL.DRC_MODE, mode | 0); }
+  get drcMode() { return Atomics.load(this.ctrl, CTRL.DRC_MODE); }
   setSourceRate(hz) { Atomics.store(this.ctrl, CTRL.SRC_RATE_MILLI, Math.round(hz * 1000)); }
   get sourceRate() { return Atomics.load(this.ctrl, CTRL.SRC_RATE_MILLI) / 1000; }
   setTargetFrames(n) { Atomics.store(this.ctrl, CTRL.TARGET_FRAMES, n); }
@@ -112,6 +119,7 @@ export function readRingStats(sab) {
     underrunEvents: L(CTRL.UNDERRUN_EVENTS), underrunFrames: L(CTRL.UNDERRUN_FRAMES),
     overrunFrames: L(CTRL.OVERRUN_FRAMES), overrunEvents: L(CTRL.OVERRUN_EVENTS), trimmedFrames: L(CTRL.TRIMMED_FRAMES), catchupFrames: L(CTRL.CATCHUP_FRAMES),
     tick: L(CTRL.TICK), paused: L(CTRL.PAUSED) === 1, targetFrames: L(CTRL.TARGET_FRAMES),
+    playRate: (L(CTRL.PLAY_RATE_MILLI) || 1000) / 1000, drcMode: L(CTRL.DRC_MODE), drc: (L(CTRL.DRC_MILLI) || 1000) / 1000,
     sumSq: stats[ST.SUMSQ], framesOut: stats[ST.FRAMES], nonZeroFrames: stats[ST.NONZERO], peak: stats[ST.PEAK], maxJump: stats[ST.MAXJUMP],
   };
 }

@@ -196,3 +196,146 @@ test("process() does not allocate in steady state (heap growth over 200 000 quan
   // feed() allocates nothing either (typed arrays are reused); allow noise from the test harness itself.
   assert.ok(grown < 4 * 1024 * 1024, `heap grew ${(grown / 1024).toFixed(0)} KiB`);
 });
+
+// Fast-forward (PLAY_RATE_MILLI): the consumer drains the ring faster, so the pitch rises with the speed.
+for (const [rate, expectHz] of [[2, 2000], [1.5, 1500]]) {
+  test(`play rate x${rate}: a 1 kHz tone comes out at ${expectHz} Hz, same amplitude, no underrun`, () => {
+    const t = rig({ ctxRate: 48000 });
+    t.writer.setPlayRate(rate);
+    t.writer.setDrcMode(2); // the production default ("always"): with the producer on time it must not touch the pitch
+    t.run(200); // prime and settle
+    const before = readRingStats(t.sab).underrunEvents;
+    const x = t.run(300);
+    const seg = x.subarray(2000);
+    const f = peakFrequency(seg.subarray(0, 16384), 48000, expectHz - 60, expectHz + 60, 0.05);
+    assert.ok(Math.abs(f - expectHz) < 0.2, `peak at ${f}`);
+    const { amp } = sinFit(seg, 48000, f);
+    assert.ok(Math.abs(amp - 0.5) < 0.01, `amplitude ${amp}`);
+    assert.equal(readRingStats(t.sab).underrunEvents, before);
+  });
+}
+
+test("play rate: switching 1x -> 2x -> 1x while playing makes no click and no underrun", () => {
+  const t = rig({ ctxRate: 48000 });
+  t.run(200);
+  const before = readRingStats(t.sab).underrunEvents;
+  const a = t.run(60);
+  t.writer.setPlayRate(2); const b = t.run(120);
+  t.writer.setPlayRate(1); const c = t.run(120);
+  let maxJump = 0, prev = a[a.length - 1];
+  for (const x of [b, c]) { for (let i = 0; i < x.length; i++) { maxJump = Math.max(maxJump, Math.abs(x[i] - prev)); prev = x[i]; } }
+  // the 2x tone is twice as steep as the 1 kHz one: allow twice the natural step
+  assert.ok(maxJump < CLICK_LIMIT * 2.1, `max jump ${maxJump} vs limit ${CLICK_LIMIT * 2.1}`);
+  assert.equal(readRingStats(t.sab).underrunEvents, before);
+});
+
+// Fast-forward with a producer slower than requested (the CPU cannot emulate 2x): the playback must follow what is
+// produced instead of running dry. Request 2x, produce 1.6x => it settles near 1.6x, with no underrun.
+test("fast-forward x2 with a producer limited to 1.6x: no underruns, the playback settles at the produced speed", () => {
+  const t = rig({ ctxRate: 48000 });
+  t.writer.setPlayRate(2);
+  t.writer.setDrcMode(1); // "ff": the original behaviour, only in fast-forward
+  t.writer.setTargetFrames(t.target * 2); t.target = t.writer.targetFrames; // the worker scales the target with the speed
+  const perQuantum = (1.6 * SRC * Q) / 48000; // source frames the limited producer delivers per render quantum
+  let owed = 0, srcFed = 0;
+  const feedLimited = () => { owed += perQuantum; const n = Math.floor(owed); owed -= n; if (n) { t.feed(n); srcFed += n; } };
+  t.feed(t.target + 600); // already primed, as after the first seconds of play
+  const run = (quanta) => { const out = new Float32Array(quanta * Q); for (let q = 0; q < quanta; q++) { feedLimited(); t.pb.process(t.outL, t.outR, Q); out.set(t.outL, q * Q); } return out; };
+  run(2500);                                    // settle the control loop (~6.7 s of audio time)
+  const before = readRingStats(t.sab).underrunEvents;
+  const x = run(1200);
+  const f = peakFrequency(x.subarray(0, 16384), 48000, 1200, 1900, 0.5);
+  assert.equal(readRingStats(t.sab).underrunEvents, before, "no underruns");
+  assert.ok(f > 1500 && f < 1700, `output pitch ${f} Hz should follow the 1.6x production (1600 Hz), not the 2000 Hz requested`);
+  assert.ok(t.pb.drc > 0.75 && t.pb.drc < 0.85, `drc ${t.pb.drc} should settle at 1.6/2 = 0.8`);
+  assert.ok(readRingStats(t.sab).fillFrames > 0.4 * t.target, "the ring never ran dry");
+});
+
+test("fast-forward: drops back to the plain rate when the producer keeps up (fill at target) and when returning to 1x", () => {
+  const t = rig({ ctxRate: 48000 });
+  t.writer.setPlayRate(2);
+  t.writer.setDrcMode(1);
+  t.run(300);
+  assert.ok(t.pb.drc > 0.99, `drc ${t.pb.drc} with a full ring`);
+  t.writer.setPlayRate(1);
+  t.run(5);
+  assert.equal(t.pb.drc, 1);
+});
+
+// ---- Phase 9 / user decision 0.0 #4: audioDynamicRate "always" by default (dynamic rate control also at 1x) ----
+
+/** Rig whose "CPU" only delivers `production`x the consumed audio at 1x. Feed one quantum's worth right before each process(). */
+function limitedRig({ production = 0.9, drcMode = 2 } = {}) {
+  const t = rig({ ctxRate: 48000 });
+  t.writer.setDrcMode(drcMode);
+  const perQuantum = (production * SRC * Q) / 48000; // source frames the limited producer delivers per render quantum
+  let owed = 0;
+  const feedLimited = () => { owed += perQuantum; const n = Math.floor(owed); owed -= n; if (n) t.feed(n); };
+  t.feed(t.target + 600); // already primed, as after the first seconds of play
+  t.minFill = Infinity;
+  t.runLimited = (quanta) => {
+    const out = new Float32Array(quanta * Q);
+    for (let q = 0; q < quanta; q++) {
+      feedLimited();
+      t.pb.process(t.outL, t.outR, Q);
+      out.set(t.outL, q * Q);
+      if (t.writer.fill < t.minFill) t.minFill = t.writer.fill;
+    }
+    return out;
+  };
+  return t;
+}
+
+test("drc always at 1x: a producer limited to 0.9x causes no underruns, the pitch drops to ~0.9x (within 0.8..1.0) and the ring never runs dry", () => {
+  const t = limitedRig({ production: 0.9, drcMode: 2 });
+  t.runLimited(2500); // settle the control loop (~6.7 s of audio time)
+  const before = readRingStats(t.sab).underrunEvents;
+  const x = t.runLimited(1200);
+  const st = readRingStats(t.sab);
+  assert.equal(st.underrunEvents, before, "no underruns: the playback slows down instead");
+  const f = peakFrequency(x.subarray(0, 16384), 48000, 800, 1000, 0.05);
+  assert.ok(f > 800 && f < 1000, `output pitch ${f} Hz must stay between 0.8x and 1.0x of the 1000 Hz nominal`);
+  assert.ok(Math.abs(f - 900) < 60, `output pitch ${f} Hz should follow the 0.9x production (~900 Hz)`);
+  assert.ok(t.pb.drc > 0.8 && t.pb.drc < 0.98, `drc ${t.pb.drc} should settle at ~0.9`);
+  assert.equal(st.drcMode, 2);
+  assert.ok(st.drc > 0.8 && st.drc < 0.98, `stats drc ${st.drc}`);
+  assert.ok(t.minFill > 0.4 * t.target, `the ring never ran dry (min fill ${t.minFill} of ${t.target})`);
+  assert.ok(Math.abs(t.writer.fill - 0.81 * t.target) < 0.15 * t.target, `fill settled at ~0.81x target (${t.writer.fill} vs ${(0.81 * t.target).toFixed(0)})`);
+});
+
+test("drc always at 1x: a producer on time changes nothing (drc 1, exact 1 kHz / 0.5 amplitude, no underrun)", () => {
+  const t = rig({ ctxRate: 48000 });
+  t.writer.setDrcMode(2);
+  t.run(200); // prime and settle
+  const before = readRingStats(t.sab).underrunEvents;
+  const x = t.run(300);
+  const seg = x.subarray(2000);
+  const f = peakFrequency(seg.subarray(0, 16384), 48000, 950, 1050, 0.05);
+  assert.ok(Math.abs(f - 1000) < 0.05, `peak at ${f} (must be the nominal pitch, no rate control needed)`);
+  const { amp } = sinFit(seg, 48000, f);
+  assert.ok(Math.abs(amp - 0.5) < 0.006, `amplitude ${amp}`);
+  const st = readRingStats(t.sab);
+  assert.ok(t.pb.drc > 0.999 && st.drc > 0.999, `drc ${t.pb.drc} / ${st.drc} must stay 1 with the ring above 90 % of target`);
+  assert.equal(st.drcMode, 2);
+  assert.equal(st.underrunEvents, before);
+});
+
+test("drc off at 1x: the same 0.9x producer runs the ring dry (drc stays 1): the contrast for the new default", () => {
+  const t = limitedRig({ production: 0.9, drcMode: 0 });
+  t.runLimited(2500);
+  const st = readRingStats(t.sab);
+  assert.equal(t.pb.drc, 1, "mode off never applies the control");
+  assert.equal(st.drc, 1);
+  assert.equal(st.drcMode, 0);
+  assert.ok(st.underrunEvents > 0, `the ring should run dry (underrun events ${st.underrunEvents})`);
+});
+
+test("drc ff at 1x: no control (drc stays 1) even with the 0.9x producer; it only acts in fast-forward", () => {
+  const t = limitedRig({ production: 0.9, drcMode: 1 });
+  t.runLimited(2500);
+  const st = readRingStats(t.sab);
+  assert.equal(t.pb.drc, 1, "mode ff must not change the 1x playback");
+  assert.equal(st.drc, 1);
+  assert.equal(st.drcMode, 1);
+  assert.ok(st.underrunEvents > 0, `without the 1x control the ring runs dry (underrun events ${st.underrunEvents})`);
+});

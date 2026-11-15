@@ -11,10 +11,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseCheat, parseCatalog, toRetroCode, payloadWords, MAX_PAD_WORDS, CheatErrorCode as E, CheatWarningCode as W } from "../js/cheats.js";
 import { parseCht } from "./lib/cht.mjs";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url)); // not .pathname: that gives "/D:/..." on Windows
 const argDir = process.argv.slice(2).find((a) => !a.startsWith("-") && existsSync(a) && statSync(a).isDirectory());
 const realDir = process.env.CHEATS_DIR || argDir;
 

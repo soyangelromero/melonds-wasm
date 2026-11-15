@@ -33,10 +33,19 @@ test("two threads: 3 million frames arrive in order, complete and unmodified (ra
   const done = new Promise((res, rej) => { prod.on("exit", res); prod.on("error", rej); });
   const reader = new AudioRingReader(sab);
   const dst = new Int16Array(1000 * 2);
-  let got = 0, spins = 0;
+  // When the producer thread has not produced yet, yield the CPU with a short Atomics.wait instead of a tight spin:
+  // under heavy parallel load the old 50M-spin budget could be consumed by the scheduler starving this thread, which
+  // made the test flaky ("consumer starved") even though the ring was fine. The deadline below still fails a real hang.
+  const idle = new Int32Array(new SharedArrayBuffer(4));
+  const started = Date.now();
+  let got = 0;
   while (got < total) {
     const n = reader.read(dst, 1000);
-    if (n === 0) { if (++spins > 5e7) assert.fail("consumer starved"); continue; }
+    if (n === 0) {
+      Atomics.wait(idle, 0, 0, 2);
+      if (Date.now() - started > 120000) assert.fail("consumer starved (120 s without frames)");
+      continue;
+    }
     for (let k = 0; k < n; k++) {
       if (dst[k * 2] !== L(got + k) || dst[k * 2 + 1] !== R(got + k)) assert.fail(`mismatch at frame ${got + k}`);
     }

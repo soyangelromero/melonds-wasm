@@ -26,6 +26,24 @@
       #msg { padding: .4rem 1rem; color: #ffa657; white-space: pre-wrap; }
       .err { color: #ff7b72; }
     </style>
+    <script>
+      // Optional COOP/COEP helper for static hosts that cannot send custom headers (GitHub Pages, plain http.server...):
+      // add ?coi=1 to the URL to register coi-sw.js (root of the published folder) and reload once. It is opt-in on
+      // purpose: the demo must stay non-isolated when a test wants to show the "serve with COOP/COEP" message.
+      (async () => {
+        const requested = new URLSearchParams(location.search).get("coi") === "1";
+        if (!requested || self.crossOriginIsolated || !("serviceWorker" in navigator)) return;
+        if (sessionStorage.getItem("coi-sw-tried") === "1") return; // never enter a reload loop
+        sessionStorage.setItem("coi-sw-tried", "1");
+        try {
+          await navigator.serviceWorker.register(new URL("../coi-sw.js", location.href).href);
+          const registration = await navigator.serviceWorker.ready;
+          if (registration.active) location.reload();
+        } catch {
+          /* no service worker: the host must send the headers (see README "Requisitos") */
+        }
+      })();
+    </script>
   </head>
   <body>
     <aside>
@@ -61,10 +79,14 @@
       <fieldset>
         <legend>Ejecución</legend>
         <label>Velocidad
-          <select id="speed"><option value="1">1x (≈59,83 fps)</option><option value="2">2x</option><option value="0">Sin límite</option></select>
+          <select id="speed"><option value="1">1x (≈59,83 fps)</option><option value="1.5">1,5x</option><option value="2">2x</option><option value="0">Sin límite</option></select>
         </label>
         <button id="pause" disabled>Pausa</button>
         <button id="shot" disabled>Captura PNG</button>
+        <label>Medir durante <select id="benchSecs"><option value="20">20 s</option><option value="30" selected>30 s</option><option value="60">60 s</option></select></label>
+        <button id="bench" disabled>Medir rendimiento</button>
+        <pre id="benchOut" hidden style="white-space:pre-wrap;font:12px/1.4 monospace;margin:6px 0"></pre>
+        <button id="benchCopy" hidden>Copiar resultado</button>
       </fieldset>
       <fieldset>
         <legend>Audio</legend>
@@ -73,7 +95,7 @@
         <label>Latencia objetivo: <output id="latOut">80</output> ms (al cargar)
           <input id="latency" type="range" min="30" max="250" step="10" value="80" /></label>
         <button id="audioBtn" type="button">Activar audio</button>
-        <p style="color:#9da7b3;margin:.4rem 0 0">A 2x / sin límite el audio se silencia (el reloj de audio solo marca el ritmo a 1x).</p>
+        <p style="color:#9da7b3;margin:.4rem 0 0">Hasta 2x el audio suena acelerado (más agudo); en «Sin límite» se silencia. Si a 2x se corta, tu equipo no llega a ~120 fps: usa 1,5x.</p>
       </fieldset>
       <fieldset>
         <legend>Controles</legend>
@@ -86,6 +108,11 @@
         <button id="dlSave" type="button" disabled>Descargar .sav</button>
         <label>Reemplazar .sav y reiniciar <input id="loadSave" type="file" accept=".sav,.dsv,.bin" disabled /></label>
         <button id="clearStore" type="button" disabled>Borrar el guardado almacenado</button>
+        <p style="color:#9da7b3;margin:.6rem 0 .2rem"><b>.sav en el PC (File System Access API)</b>: <span id="fsaState">sin archivo vinculado</span></p>
+        <button id="fsaLink" type="button" disabled>Vincular .sav del PC</button>
+        <button id="fsaSave" type="button" disabled>Guardar ahora en el .sav del PC</button>
+        <label><input id="fsaAuto" type="checkbox" checked /> Escribir en el .sav del PC en cada guardado (Chrome/Edge; en otros navegadores usa Descargar/Importar)</label>
+        <small id="fsaHint" style="color:#9da7b3;display:block;margin-top:.2rem"></small>
         <button id="qsave" type="button" disabled>Estado rápido: guardar</button>
         <button id="qload" type="button" disabled>Estado rápido: cargar</button>
         <button id="dlState" type="button" disabled>Descargar estado (.mdsstate)</button>

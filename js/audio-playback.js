@@ -12,6 +12,9 @@ const CATCHUP_RATE = 1.02;       // play 2 % faster (~+34 cents) while the fill 
 const CATCHUP_ON = 2.0, CATCHUP_OFF = 1.25; // hysteresis, as multiples of the target fill
 const TRIM_FRACTION = 0.9;       // trim threshold: min(90 % of the capacity, 5x target) -- a burst, not a drift
 const TRIM_TARGETS = 5;
+const DRC_MIN = 0.5, DRC_FULL_AT = 0.9, DRC_SMOOTH = 0.01; // dynamic rate control: lowest factor, fill/target at which full speed is allowed, smoothing per quantum
+const DRC_MIN_1X = 0.8;          // floor at 1x: the pitch may drop at most 20 % (user decision 0.0 #4, "always")
+const DRC_OFF = 0, DRC_FF = 1, DRC_ALWAYS = 2; // CTRL.DRC_MODE: 0 off, 1 only in fast-forward, 2 always
 
 export class AudioPlayback {
   /** @param {SharedArrayBuffer} sab audio ring; @param {number} ctxRate AudioContext sample rate; @param {SharedArrayBuffer|null} capture */
@@ -33,6 +36,7 @@ export class AudioPlayback {
     this.heldL = 0; this.heldR = 0;    // decaying tail after an underrun
     this.lastL = 0; this.lastR = 0;
     this.catchingUp = false;
+    this.drc = 1;                      // dynamic rate control factor (mode "always" or fast-forward), 1 = full requested speed
     this.outCount = 0;
   }
 
@@ -57,7 +61,23 @@ export class AudioPlayback {
     // Gentle catch-up while the excess lasts (hysteresis so it does not flap).
     if (!this.catchingUp && fill > target * CATCHUP_ON) this.catchingUp = true;
     else if (this.catchingUp && fill < target * CATCHUP_OFF) this.catchingUp = false;
-    const step = (srcRate / this.ctxRate) * (this.catchingUp ? CATCHUP_RATE : 1);
+    const playRate = (Atomics.load(ctrl, CTRL.PLAY_RATE_MILLI) || 1000) / 1000; // fast-forward: consume the ring faster (pitch rises with it)
+    // Dynamic rate control (DRC). When the emulator cannot produce `playRate`x (the CPU is the limit), the ring drains
+    // below target. Instead of running dry (underruns = audible cuts) the playback slows in proportion to the fill, so it
+    // settles at whatever speed the emulator really sustains (pitch follows). At or above ~90 % of the target it plays at
+    // the full requested rate. Smoothed per quantum (~0.3 s time constant) so the pitch glides instead of warbling.
+    // DRC_MODE: 0 off, 1 fast-forward only (the original behaviour), 2 always (also at 1x). At 1x the floor is 0.8, so a
+    // CPU that is just short sounds up to 20 % slower instead of cutting; with a CPU on time the fill stays above 90 % of
+    // the target and the factor is 1, i.e. nothing changes.
+    const drcMode = Atomics.load(ctrl, CTRL.DRC_MODE);
+    if (paused) this.drc = 1; // no playback: there is nothing to slow down (avoids a bogus factor in the stats while muted)
+    else if (drcMode === DRC_ALWAYS || (drcMode === DRC_FF && playRate > 1)) {
+      const floor = playRate > 1 ? DRC_MIN : DRC_MIN_1X;
+      const want = Math.min(1, Math.max(floor, fill / (target * DRC_FULL_AT)));
+      this.drc += (want - this.drc) * DRC_SMOOTH;
+    } else this.drc = 1;
+    Atomics.store(ctrl, CTRL.DRC_MILLI, Math.round(this.drc * 1000)); // reported in readRingStats() for tests and the demo/stats
+    const step = (srcRate * playRate * this.drc / this.ctxRate) * (this.catchingUp ? CATCHUP_RATE : 1);
 
     let { l0, l1, l2, l3, r0, r1, r2, r3, phase, gain, heldL, heldR, mode, lastL, lastR } = this;
     const rampStep = this.rampStep, decay = this.decay;

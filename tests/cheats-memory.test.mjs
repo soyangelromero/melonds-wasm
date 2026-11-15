@@ -9,12 +9,13 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { bootCore, haveCore } from "./lib/core-harness.mjs";
 import { parseCheat, parseCatalog, CheatErrorCode as E } from "../js/cheats.js";
 import { parseCht } from "./lib/cht.mjs";
 import { setCheat, clearCheats, cheatHandlers } from "../js/cheats-worker.js";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url)); // not .pathname: that gives "/D:/..." (URI-encoded) on Windows
 const romPath = process.env.ROM || join(root, "tests/artifacts/nmap.nds");
 const skip = !haveCore ? "falta dist/melonds.js (compila con scripts/build-core.sh y scripts/build-host.sh)" : !existsSync(romPath) ? `falta la ROM ${romPath}` : false;
 

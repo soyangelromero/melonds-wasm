@@ -4,9 +4,10 @@
 // at the expected pitch, and the host ring's overrun/underrun accounting.
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { goertzel } from "./audio-util.mjs";
 
-const romPath = process.argv[2] ?? new URL("./artifacts/audio-tone.nds", import.meta.url).pathname;
+const romPath = process.argv[2] ?? fileURLToPath(new URL("./artifacts/audio-tone.nds", import.meta.url));
 if (!existsSync(romPath)) { console.log(`SKIP: ${romPath} missing (python3 tests/homebrew/audio-tone/mkrom.py tests/artifacts/audio-tone.nds)`); process.exit(0); }
 
 const { default: createModule } = await import(new URL("../dist/melonds.js", import.meta.url));

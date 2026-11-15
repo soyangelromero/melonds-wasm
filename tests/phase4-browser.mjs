@@ -121,16 +121,22 @@ if (run("B")) {
   check("B4 drawing resumes when rAF returns", c.drawnFrames > b.drawnFrames + 10, `drawn Δ ${c.drawnFrames - b.drawnFrames}`);
 }
 
-// ================================ C. speed 2x / unlimited: muted, not broken ================================
+// ================================ C. speed 2x audible (sped up) / unlimited muted ================================
 if (run("C")) {
   console.log("\n== C. 2x and unlimited speed ==");
   for (const [label, value, expectFps] of [["2x", 2, 119.65], ["unlimited", 0, null]]) {
     await page.evaluate((v) => window.__t.p.setSpeed(v), value); await sleep(1500);
     const a = await T(page); await sleep(3000); const b = await T(page);
     const fps = (b.frameCount - a.frameCount) / ((b.now - a.now) / 1000);
-    check(`C ${label}: the audio clock stops being the metronome and the output is silent (RMS < 0.001)`, !b.feeding && rmsOf(a, b) < 0.001, `feeding ${b.feeding}, RMS ${fx(rmsOf(a, b), 5)}, ${fx(fps, 1)} fps`);
-    if (expectFps) check(`C ${label}: speed really is ~2x`, Math.abs(fps / expectFps - 1) < 0.05, `${fx(fps, 1)} fps vs ${expectFps}`);
-    check(`C ${label}: muting is not counted as an underrun and the ring is empty`, b.underrunEvents === a.underrunEvents && b.fillFrames === 0, `underruns ${b.underrunEvents}, fill ${b.fillFrames}`);
+    if (value === 2) {
+      // 2x keeps the audio: the clock stays the metronome, the tone plays an octave higher (same RMS), no underrun
+      check("C 2x: the audio keeps playing (clock stays the metronome, RMS as at 1x)", b.feeding && Math.abs(rmsOf(a, b) / EXPECTED_RMS - 1) < 0.05, `feeding ${b.feeding}, RMS ${fx(rmsOf(a, b), 5)}, ${fx(fps, 1)} fps`);
+      check("C 2x: speed really is ~2x", Math.abs(fps / expectFps - 1) < 0.05, `${fx(fps, 1)} fps vs ${expectFps}`);
+      check("C 2x: no underrun while sped up", b.underrunEvents === a.underrunEvents, `underruns ${b.underrunEvents - a.underrunEvents}`);
+    } else {
+      check(`C ${label}: the audio clock stops being the metronome and the output is silent (RMS < 0.001)`, !b.feeding && rmsOf(a, b) < 0.001, `feeding ${b.feeding}, RMS ${fx(rmsOf(a, b), 5)}, ${fx(fps, 1)} fps`);
+      check(`C ${label}: muting is not counted as an underrun and the ring is empty`, b.underrunEvents === a.underrunEvents && b.fillFrames === 0, `underruns ${b.underrunEvents}, fill ${b.fillFrames}`);
+    }
   }
   await page.evaluate(() => { window.__t.resetStats(); window.__t.p.setSpeed(1); });
   const t0 = Date.now();
