@@ -14,8 +14,10 @@ Nada de esto se puede automatizar aquí: el repositorio no contiene ROM, BIOS ni
 
 ## PRUEBA CLAVE DE REGRESIÓN (por cada juego)
 
-Juegos: **Pokémon SoulSilver, Platino y Negra** (y el cuarto que tengas; el plan habla de «los 4 juegos»). Con el núcleo antiguo (EmulatorJS/melonDS 0.9.2) fallaba con
-«error de conexión» al pulsar «Continuar» sin firmware real; la razón de ser de este port es que **no** falle.
+Juegos: **Pokémon SoulSilver, Platino, Negra y Negra 2** (los 4 de la biblioteca). Con el núcleo antiguo (EmulatorJS/melonDS 0.9.2) fallaba con
+«error de conexión» al pulsar «Continuar» sin firmware real; la razón de ser de este port es que **no** falle. Negra 2 es una ROM de
+512 MB: usa una `dist/` con tope de 2 GiB (`node scripts/raise-memory-limit.mjs`, o el rebuild con `scripts/build-host.sh`, que ya pide 2 GiB);
+con el build de 1 GiB el port la rechaza con `ROM_TOO_LARGE` y la web app ofrece el fallback a EmulatorJS (verificado: también arranca).
 
 Procedimiento exacto (repite entero para cada juego, empezando con el navegador sin guardado almacenado: pulsa «Borrar el guardado almacenado» o usa una ventana privada):
 
@@ -40,6 +42,7 @@ añade `verbose: true` en `VideoPlayer.create` de `demo/saves.js` (salen como `[
 | Pokémon SoulSilver | | | | | | | |
 | Pokémon Platino | | | | | | | |
 | Pokémon Negra | | | | | | | |
+| Pokémon Negra 2 (512 MB; requiere build/parche de 2 GiB) | | | | | | | |
 | (cuarto juego) | | | | | | | |
 
 ## Comprobaciones adicionales con tus ROM (opcionales pero recomendadas)

@@ -54,7 +54,7 @@ class MelonDS {
   setLayout(l: Layout): void;               // traduce la etiqueta a la clave del núcleo (tabla 2.1) y fija melonds_screen_layout1 + melonds_number_of_screen_layouts=1; el núcleo emite la nueva geometría
   setScreenGap(px: number): void;           // 0..126
   setHybridSmallScreen(s: "one" | "both"): void; // one = mostrar la pantalla opuesta; both = mostrar ambas (antiguo "Duplicate")
-  setPostProcess(shader: { glsl: string } | null): void; // filtro opcional (WebGL2); null = nítido. `glsl` es un fragmento GLSL ES 3.00 que define `vec4 mds_post(vec2 uv)` (uv 0..1, y hacia abajo, sobre el fotograma mostrado) y puede usar `mds_fetch(uv)` (RGBA ya convertido y rotado), `u_size` y `u_frameSize`. Si no compila se conserva el filtro anterior y se devuelve {ok:false,error} (Fase 3; el contrato `void` se mantiene en la clase final lanzando Error). Canvas2D no admite filtros
+  setPostProcess(shader: { glsl: string, scale?: number } | null): void; // filtro opcional (WebGL2); null = nítido. `glsl` es un fragmento GLSL ES 3.00 que define `vec4 mds_post(vec2 uv)` (uv 0..1, y hacia abajo, sobre el fotograma mostrado) y puede usar `mds_fetch(uv)` (RGBA ya convertido y rotado), `u_size` (píxeles del lienzo de salida), `u_src` (fotograma mostrado en píxeles de origen) y `u_frameSize`. `scale` (entero 1..6, por defecto 1) = píxeles de salida por píxel de origen: el renderizador agranda el lienzo para que los efectos de rejilla tengan resolución (tope 6 MP; sin filtro `u_size == u_src`). Catálogo ya hecho en `js/filters.js` (`FILTERS`, `FILTER_BY_ID`) Si no compila se conserva el filtro anterior y se devuelve {ok:false,error} (Fase 3; el contrato `void` se mantiene en la clase final lanzando Error). Canvas2D no admite filtros
   screenshot(): Promise<Blob>;              // PNG del lienzo; Error("NO_CANVAS") en modo headless
   getFrame(): { width: number; height: number; stride: number; rotation: 0|1|2|3; format: "XRGB8888"; data: Uint8Array }; // fotograma compuesto por el núcleo, SIN rotar; data.length === stride * height y `stride` puede incluir padding. `rotation` (añadido en la Fase 3): giros de 90° antihorarios que el anfitrión debe aplicar (layouts Rotated Left/Right y Upside Down); el canvas ya los aplica y su tamaño es el del fotograma rotado
   captureStream(fps?: number): MediaStream; // vídeo (canvas.captureStream) + audio (MediaStreamAudioDestinationNode) en un solo MediaStream; exige canvas visible y audio ya iniciado (si no, Error code "AUDIO_NOT_STARTED"); el audio sale ANTES del volumen/silencio locales
@@ -146,7 +146,7 @@ La web app (`nds/index.html`) usa estas llamadas de EmulatorJS. El adaptador las
 | `ejs.screenshot(cb)` | `screenshot()` | |
 | `ejs.pause()/play()`, `ejs.paused` | `pause()/resume()`, `paused` | |
 | `ejs.canvas`, `ejs.toggleFullscreen` | el `canvas` pasado a `create` | |
-| `ejs.enableShader(name)` | `setPostProcess({glsl})` | los nombres de filtros los define el adaptador |
+| `ejs.enableShader(name)` | `setPostProcess({glsl, scale})` | los nombres de filtros los define el adaptador (`ejs.filterList`: sharp-bilinear, smooth, lcd, scanlines, crt, dscolor, ds-lcd) |
 | `ejs.config.threads` | `getStats().threads` | |
 | toques remotos (`MouseEvent` sintético sobre el lienzo) | `touchFromCanvas(nx, ny, state)` | coordenadas respecto al rectángulo dibujado del fotograma, no al canvas con barras |
 | `EJS_emulator.netplay` (host) | ver 7 | la web app tiene su propio flujo de invitados |
