@@ -40,6 +40,10 @@ Qué es y qué no es, para que no haya malentendidos:
 ## Compilar
 
 ```bash
+# Clonar CON el submódulo. En Windows, sin convertir los finales de línea (si no, los parches no aplican):
+git clone -c core.autocrlf=false --recurse-submodules https://github.com/soyangelromero/melonds-wasm.git
+cd melonds-wasm
+
 # Linux / macOS / Git Bash
 ./scripts/build.sh
 
