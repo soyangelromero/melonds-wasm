@@ -1,5 +1,5 @@
 // Optional (needs internet + the EmulatorJS CDN): the fallback really plays the 512 MB ROM. When the WASM engine
-// rejects a ROM with ROM_TOO_LARGE, nds/index.html offers "Jugar con el motor melonDS (EmulatorJS)"; this test opens
+// rejects a ROM with ROM_TOO_LARGE, nds/index.html offers the "Jugar con el motor melonDS (EmulatorJS)" button (Spanish UI text); this test opens
 // that exact URL and waits for the old core to start, so the claim "the whole NDS library is playable in the web app
 // today" has direct evidence (the port for 3 ROMs, EmulatorJS for the 512 MB one until the 2 GiB rebuild).
 //

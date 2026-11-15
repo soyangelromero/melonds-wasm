@@ -66,21 +66,21 @@ T("efecto: un código AR fija un valor en RAM; se reaplica cada fotograma; desac
   console.log(`# valor aplicado tras ${used} fotograma(s) desde que se activa`);
   assert.equal(c.r32(A), 0xdeadbeef);
 
-  // se reaplica: lo borramos a mano y vuelve
+  // it is re-applied: we clear it by hand and it comes back
   c.w32(A, 0);
   assert.ok(until(() => c.r32(A) === 0xdeadbeef, 3) > 0, "no se reaplicó");
 
-  // desactivar (sin reenviar el texto: se reutiliza el guardado): el valor se queda (no se revierte) ...
+  // disable (without resending the text: the stored one is reused): the value stays (it is not reverted) ...
   assert.equal(c.cheat(1, false, ""), 0);
   assert.equal(c.enabled(1), 0);
   c.frames(5);
   assert.equal(c.r32(A), 0xdeadbeef, "desactivar no debe revertir (ver DEVIATIONS.md)");
-  // ... y el motor deja de escribir
+  // ... and the engine stops writing
   c.w32(A, 0xfeedf00d);
   c.frames(10);
   assert.equal(c.r32(A), 0xfeedf00d, "el código desactivado siguió escribiendo");
 
-  // reactivar con el texto guardado
+  // re-enable with the stored text
   assert.equal(c.cheat(1, true, ""), 0);
   assert.equal(c.enabled(1), 1);
   assert.ok(until(() => c.r32(A) === 0xdeadbeef, 3) > 0);
@@ -139,7 +139,7 @@ T("estrés: activar/desactivar el MISMO código 20 veces (una sola ranura, sin f
   console.log(`# heap tras 20 ciclos con 60 fotogramas: ${grown >= 0 ? "+" : ""}${grown} bytes`);
   assert.ok(grown < 512 * 1024, `crecimiento sospechoso del heap: ${grown}`);
 
-  // fugas puras del glue: muchas llamadas sin emular
+  // pure leaks in the glue: many calls without emulating
   const h1 = c.heapUsed();
   for (let i = 0; i < 20000; i++) c.cheat(9, i & 1, code);
   const leak = c.heapUsed() - h1;
@@ -161,7 +161,7 @@ T("ids dispersos (5, 1000, 3): ranuras por orden de aparición, reutilización a
   c.frames(4);
   assert.deepEqual([c.r32(A5), c.r32(A1000), c.r32(A3)], [5, 1000, 3]);
 
-  // repetir un id reutiliza su ranura (no crece) y REEMPLAZA el código en el núcleo: la dirección vieja deja de escribirse
+  // repeating an id reuses its slot (no growth) and REPLACES the code in the core: the old address stops being written
   assert.equal(c.cheat(1000, true, "02230030+000003E9"), 1);
   assert.equal(c.count(), 3);
   c.w32(A1000, 0);
@@ -170,7 +170,7 @@ T("ids dispersos (5, 1000, 3): ranuras por orden de aparición, reutilización a
   assert.equal(c.r32(A1000b), 1001);
   assert.deepEqual([c.r32(A5), c.r32(A3)], [5, 3]);
 
-  // repetir 5 y 3 tampoco crecen; un id nuevo toma la siguiente ranura libre (3)
+  // repeating 5 and 3 does not grow either; a new id takes the next free slot (3)
   assert.equal(c.cheat(5, true, "02230000+00000005"), 0);
   assert.equal(c.cheat(3, true, "02230020+00000003"), 2);
   assert.equal(c.cheat(7, true, "02230040+00000007"), 3);
@@ -178,13 +178,13 @@ T("ids dispersos (5, 1000, 3): ranuras por orden de aparición, reutilización a
   c.frames(4);
   assert.equal(c.r32(A7), 7);
 
-  // desactivar uno no afecta al resto
+  // disabling one does not affect the rest
   c.cheat(3, false, "");
   c.w32(A3, 0); c.w32(A5, 0);
   c.frames(4);
   assert.deepEqual([c.r32(A3), c.r32(A5)], [0, 5]);
 
-  // clear: olvida los ids y las ranuras empiezan otra vez desde 0
+  // clear: forgets the ids and the slots start again from 0
   c.clear();
   assert.equal(c.count(), 0);
   assert.deepEqual([c.slot(5), c.slot(1000), c.slot(3)], [-1, -1, -1]);
@@ -213,7 +213,7 @@ T("un código no válido NO consume ranura (si no, las ranuras se desplazarían 
   assert.equal(c.cheat(8, true, "02230100+0000A11D"), 0, "el primer código válido debe usar la ranura 0");
   c.frames(4);
   assert.equal(c.r32(A), 0xa11d);
-  // un id que ya existe con texto inválido no pierde su código anterior
+  // an id that already exists with invalid text keeps its previous code
   assert.equal(c.cheat(8, true, "nope"), -3);
   c.w32(A, 0);
   c.frames(4);
@@ -242,12 +242,12 @@ T("js/cheats-worker.js (lo que usa emu-worker): texto en varias líneas, relleno
   const A = 0x02230300;
   clearCheats(c.M);
   c.w32(A, 0);
-  // pares por línea, mayúsculas/minúsculas mezcladas, salto final (el núcleo lo rechazaría tal cual)
+  // pairs per line, mixed upper/lower case, trailing newline (the core would reject it as is)
   const r = setCheat(c.M, 4000000000, true, "02230300 0000c0de\r\n");
   assert.equal(r.slot, 0);
   c.frames(4);
   assert.equal(c.r32(A), 0xc0de);
-  // carga E-type 2 palabras corta (como el código HGSS): aviso y se carga
+  // E-type payload 2 words short (like the HGSS code): warning, and it loads
   const p = setCheat(c.M, 1, false, "E2230310+00000010+11223344+55667788");
   assert.equal(p.warnings[0].code, "PAYLOAD_PADDED");
   // errores
@@ -256,7 +256,7 @@ T("js/cheats-worker.js (lo que usa emu-worker): texto en varias líneas, relleno
   assert.throws(() => setCheat(c.M, 99, true, ""), (e) => e.code === "CHEAT_EMPTY");
   assert.throws(() => setCheat(c.M, -1, true, "02230300+00000001"), (e) => e.code === "CHEAT_ID");
   assert.equal(c.count(), 2, "los errores no consumen ranura");
-  // handlers del worker
+  // worker handlers
   const h = cheatHandlers(() => c.M);
   h.cheat({ id: 4000000000, enabled: false, code: "" });
   assert.equal(c.enabled(4000000000), 0);
@@ -281,7 +281,7 @@ T("reference/cheats-sample.json: los 6 códigos cargan en el núcleo y se puede 
 // Optional: every code in libretro-database that the JS converter accepts is also accepted by C++ (loaded disabled, in batches).
 const chtDir = process.env.CHT_DIR || join(root, "tests/artifacts/libretro-database-src/cht/Nintendo - Nintendo DS");
 test("libretro-database (datos efímeros): todo lo que acepta JS lo acepta C++ y el núcleo", { skip: skip || (existsSync(chtDir) ? false : "sin datos en tests/artifacts") }, () => {
-  const step = process.env.CHT_FULL ? 1 : 10; // 1 de cada 10 por defecto
+  const step = process.env.CHT_FULL ? 1 : 10; // 1 in 10 by default
   let n = 0, tried = 0, bad = [];
   c.clear();
   let id = 0;

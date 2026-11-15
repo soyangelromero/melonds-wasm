@@ -1,4 +1,4 @@
-// Remote-access software smoke test (objective: "accesible en remoto" sin depender de una cuenta de túnel).
+// Remote-access software smoke test (objective: "reachable remotely" without depending on a tunnel account).
 // Spawns the web app server (<web-app>\server.mjs) on a spare port with ACCESS_KEY and HOST set, then checks with
 // real HTTP requests that:
 //   - without the key everything is 403 (library, pages), and with `?k=`/cookie it is 200;

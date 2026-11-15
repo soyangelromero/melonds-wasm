@@ -3,7 +3,7 @@
 // page.addInitScript and then drives the demo's buttons exactly like a user would:
 //
 //   1. link a PC .sav -> it becomes the starting save when the ROM loads;
-//   2. "Guardar ahora en el .sav del PC" writes the current cartridge save into the linked file (createWritable);
+//   2. the "Guardar ahora en el .sav del PC" button (Spanish UI text) writes the current cartridge save into the linked file (createWritable);
 //   3. if the IndexedDB "Continuar" save and the PC file differ, a confirm() asks which one to use and nothing is
 //      overwritten silently;
 //   4. without the API (Firefox/Safari) the demo explains it and falls back to Download/Import.
@@ -137,7 +137,7 @@ try {
   let dialogText = null;
   page2.once("dialog", async (dialog) => {
     dialogText = dialog.message();
-    await dialog.accept(); // "usar el del PC"
+    await dialog.accept(); // the "use the PC one" choice
   });
   await bootAndLoad(page2);
   const origin2 = await page2.textContent("#s-origin");

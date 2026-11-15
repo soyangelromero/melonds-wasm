@@ -6,7 +6,7 @@
 //   SKIP_WEBAPP=1 node tests/cross-browser-smoke.mjs      # demo only
 //
 // Missing Playwright browser builds are SKIPPED (install with `npx playwright install firefox webkit`). This machine has
-// Chromium; Firefox/WebKit are optional but the result is saved as evidence for the "Firefox/Safari sin probar" limit.
+// Chromium; Firefox/WebKit are optional but the result is saved as evidence for the "Firefox/Safari untested" limit.
 // After the demo, it also opens the real web app (`nds/?engine=wasm&play=<first ROM>`) in each engine if the hub on :8080
 // is running, which is the definitive "playable in a web app" cross-browser check.
 import { chromium, firefox, webkit } from "playwright";

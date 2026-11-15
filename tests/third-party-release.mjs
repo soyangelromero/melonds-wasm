@@ -1,4 +1,4 @@
-// "Third party" acceptance test (docs/GUIA_COMPLETAR_PORT.md §6): take ONLY the published release folder, copy it
+// "Third party" acceptance test (release acceptance, step 6 of the completion guide): take ONLY the published release folder, copy it
 // somewhere else, serve it with a plain static server (no COOP/COEP headers, no project scripts) and play a ROM.
 // The demo must isolate itself with `?coi=1` (coi-sw.js) and boot; this is what a user downloading the release does.
 //

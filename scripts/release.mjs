@@ -152,47 +152,49 @@ if (zipPath) writeFileSync(join(OUT, "SHA256SUMS"), `${metadata.zip.sha256}  ${r
 
 const notes = `# melonds-wasm ${version} — release
 
-Port de **melonDS DS v1.4.0** (núcleo libretro) a WebAssembly con un anfitrión libretro mínimo y una biblioteca
-JavaScript sin dependencias en tiempo de ejecución. Licencia **GPL-3.0** (ver \`LICENSE\` y \`THIRD_PARTY.md\` dentro del
-paquete). No incluye ROM, BIOS ni firmware: usa únicamente copias propias.
+A port of **melonDS DS v1.4.0** (libretro core) to WebAssembly with a minimal libretro host and a JavaScript library with no
+runtime dependencies. **GPL-3.0** license (see \`LICENSE\` and \`THIRD_PARTY.md\` inside the package). It does not include any
+ROM, BIOS or firmware: use only your own copies.
 
-## Contenido
+## Contents
 
-- \`melonds-wasm-${version}/\` (dentro del ZIP): \`index.html\`, \`demo/\` (demo independiente y \`demo/host.html\`), \`js/\`,
+- \`melonds-wasm-${version}/\` (inside the ZIP): \`index.html\`, \`demo/\` (standalone demo and \`demo/host.html\`), \`js/\`,
   \`adapters/\`, \`dist/melonds.js\` + \`dist/melonds.wasm\`, \`coi-sw.js\`, \`LICENSE\`, \`THIRD_PARTY.md\`, \`CHANGELOG.md\`,
   \`README.md\`, \`manifest.json\`.
-- **${files.length} archivos, ${(totalBytes / 1048576).toFixed(2)} MiB**. SHA-256 del ZIP en \`SHA256SUMS\`. El ZIP no es
-  bit-reproducible entre ejecuciones (lleva timestamps y \`builtAt\`): verifícalo con \`SHA256SUMS\`.
+- **${files.length} files, ${(totalBytes / 1048576).toFixed(2)} MiB**. The ZIP's SHA-256 is in \`SHA256SUMS\`. The ZIP is not
+  bit-reproducible between runs (it carries timestamps and \`builtAt\`): verify it with \`SHA256SUMS\`.
 
-## Instalación rápida
+## Quick start
 
-1. Descomprime el ZIP y publica la carpeta con **cualquier servidor estático** (Node, nginx, Caddy, GitHub Pages…).
-2. Ese hosting debe mandar \`Cross-Origin-Opener-Policy: same-origin\` y \`Cross-Origin-Embedder-Policy: require-corp\`
-   (SharedArrayBuffer). Sin cabeceras, abre la demo con **\`?coi=1\`** para que \`coi-sw.js\` aísle la página.
-3. Abre \`/demo/index.html\`, elige tu ROM y juega. El multijugador local de la demo necesita el servidor de
-   señalización de la web app (ver \`deploy/\` en el repositorio).
+1. Unzip the archive and publish the folder with **any static server** (Node, nginx, Caddy, GitHub Pages…).
+2. That host must send \`Cross-Origin-Opener-Policy: same-origin\` and \`Cross-Origin-Embedder-Policy: require-corp\`
+   (SharedArrayBuffer). Without those headers, open the demo with **\`?coi=1\`** so \`coi-sw.js\` isolates the page.
+3. Open \`/demo/index.html\`, pick your ROM and play. The demo's local multiplayer needs the web app's signaling server
+   (see \`deploy/\` in the web app repository).
 
-## Verificado en este release
+## Verified in this release
 
-- Biblioteca completa con el port en Chromium: **NDS 4/4 + GBA 4/4** (Negra 2 necesita tope de 2 GiB: esta build lo
-  incluye; si usas otra, recompila con \`scripts/build-host.sh\` o aplica \`scripts/raise-memory-limit.mjs\`).
-- **Chromium, Firefox y WebKit** (demo y web app): crossOriginIsolated, SharedArrayBuffer, WebGL2, canvas y guardado.
-- Remoto por HTTPS con \`ACCESS_KEY\` (túnel rápido de Cloudflare) y multijugador WebRTC.
-- Suite: 138 pruebas (134 pasan, 3 omitidas, 1 intermitente preexistente) + pruebas de navegador.
+- The full library with the port in Chromium: **NDS 4/4 + GBA 4/4** (the 512 MB game, Pokémon Black 2 ("Negra 2"), needs the
+  2 GiB memory cap: this build includes it; with another build, rebuild with \`scripts/build-host.sh\` or apply
+  \`scripts/raise-memory-limit.mjs\`).
+- **Chromium, Firefox and WebKit** (demo and web app): crossOriginIsolated, SharedArrayBuffer, WebGL2, canvas and saving.
+- Remote access over HTTPS with \`ACCESS_KEY\` (Cloudflare quick tunnel) and WebRTC multiplayer.
+- Suite: 138 tests (134 pass, 3 skipped, 1 pre-existing flaky one) plus browser tests.
 
-## Límites conocidos
+## Known limits
 
-- **Negra 2 (512 MB)**: requiere tope de memoria de 2 GiB (incluido aquí). Sin él, la web app ofrece fallback a EmulatorJS.
-- **Micrófono**, Fase 7 en C++ y \`retro_reset\` barato: pendientes de recompilar el wasm.
-- **Safari real** sin probar (el motor WebKit sí); el WebKit de Playwright no expone \`AudioWorkletNode\`.
-- **Sin Wi-Fi emulado** (los servidores de Nintendo cerraron) y **sin estados de DSi**.
-- Multijugador sin TURN: redes con NAT simétrico pueden no conectar.
+- **Pokémon Black 2 / "Negra 2" (512 MB)**: needs the 2 GiB memory cap (included here). Without it, the web app falls back to
+  EmulatorJS.
+- **Microphone**, Phase 7 in C++ and a cheap \`retro_reset\`: pending a wasm rebuild.
+- **Real Safari** is untested (the WebKit engine is); Playwright's WebKit does not expose \`AudioWorkletNode\`.
+- **No emulated Wi-Fi** (Nintendo's servers are shut down) and **no DSi states**.
+- Multiplayer without TURN: networks with symmetric NAT may fail to connect.
 
-## Cómo publicarlo (lo hace el usuario)
+## How to publish it (done by the maintainer)
 
-1. Crea la etiqueta \`v${version}\` y un release en GitHub con este ZIP y \`SHA256SUMS\`.
-2. **No** subas \`dist/\` a git (ya está ignorado); el binario va como artefacto del release.
-3. Comprueba el hash descargado: \`sha256sum -c SHA256SUMS\`.
+1. Create the tag \`v${version}\` and a GitHub release with this ZIP and \`SHA256SUMS\`.
+2. **Do not** push \`dist/\` to git (it is already ignored); the binary ships as a release artifact.
+3. Check the downloaded hash: \`sha256sum -c SHA256SUMS\`.
 `;
 writeFileSync(join(OUT, "RELEASE_NOTES.md"), notes);
 

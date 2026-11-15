@@ -244,7 +244,7 @@ let savedMarker;
   check("rendimiento: 60 fps de emulación con todo activo", s.emuFps > 55, `${fx(s.emuFps, 1)} fps, ${fx(s.emuMs, 2)} ms/fotograma, dibujo ${fx(s.drawFps, 1)} fps`);
 }
 
-// ======================================================= session 2: «Continuar» =======================================================
+// ======================================================= session 2: "Continue" =======================================================
 await page.evaluate(() => window.__demo.player.saves.flush());
 await sleep(800);
 await page.close();

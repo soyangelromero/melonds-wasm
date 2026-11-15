@@ -20,7 +20,7 @@ const argDir = process.argv.slice(2).find((a) => !a.startsWith("-") && existsSyn
 const realDir = process.env.CHEATS_DIR || argDir;
 
 test("formato del contrato: palabras separadas por «+»", () => {
-  const code = "94000130+FFFB0000+62101F2C+00000000+B2101F2C+00000000+2000E302+00000001+D2000000+00000000"; // ejemplo del contrato §4
+  const code = "94000130+FFFB0000+62101F2C+00000000+B2101F2C+00000000+2000E302+00000001+D2000000+00000000"; // example from contract §4
   const r = parseCheat(code);
   assert.equal(r.ok, true);
   assert.equal(r.words.length, 10);
@@ -32,7 +32,7 @@ test("líneas sueltas y pares «XXXXXXXX XXXXXXXX» dan el mismo resultado canó
   const plus = "02210000+DEADBEEF+12210100+0000ABCD";
   for (const text of [
     "02210000 DEADBEEF\n12210100 0000ABCD",
-    "02210000 DEADBEEF\r\n12210100 0000ABCD\r\n", // el núcleo rechazaría el salto final: la forma canónica no lo lleva
+    "02210000 DEADBEEF\r\n12210100 0000ABCD\r\n", // the core would reject the trailing newline: the canonical form does not have it
     "02210000\nDEADBEEF\n12210100\n0000ABCD",
     "  02210000   deadbeef  \n\n 12210100\t0000abcd ",
     "02210000-DEADBEEF-12210100-0000ABCD",
@@ -65,7 +65,7 @@ test("errores: código y línea", () => {
   assert.equal(r.error.token, "0000ABCG");
   assert.match(r.error.message, /línea 2/);
 
-  r = parseCheat("02210000 DEADBEEF\n\n\n1221010 0000ABCD"); // 7 dígitos
+  r = parseCheat("02210000 DEADBEEF\n\n\n1221010 0000ABCD"); // 7 digits
   assert.equal(r.error.code, E.BAD_TOKEN);
   assert.equal(r.error.line, 4);
   assert.match(r.error.message, /7 dígitos/);
@@ -74,7 +74,7 @@ test("errores: código y línea", () => {
   assert.equal(r.error.code, E.BAD_TOKEN);
   assert.match(r.error.message, /0x/);
 
-  r = parseCheat("022100000 DEADBEEF"); // 9 dígitos
+  r = parseCheat("022100000 DEADBEEF"); // 9 digits
   assert.equal(r.error.code, E.BAD_TOKEN);
 
   r = parseCheat("02210000 DEADBEEF\n12210100");
@@ -90,26 +90,26 @@ test("instrucciones E-type: la carga útil se salta y se valida (el motor lee si
   assert.equal(payloadWords(1), 2);
   assert.equal(payloadWords(8), 2);
   assert.equal(payloadWords(9), 4);
-  // E2210900 copia 8 bytes => 2 palabras de datos
+  // E2210900 copies 8 bytes => 2 data words
   assert.equal(parseCheat("E2210900 00000008 11223344 55667788").ok, true);
-  // los datos podrían parecer un opcode (0xD2...) y no deben interpretarse
+  // the data could look like an opcode (0xD2...) and must not be interpreted
   assert.equal(parseCheat("E2210900 00000008 D2000000 D2000000 02210A00 00000001").ok, true);
   // 9 bytes => 4 palabras
   assert.equal(parseCheat("E2210900 00000009 11223344 55667788 99AABBCC 00000000").ok, true);
-  // 16 bytes = 4 palabras de datos pero solo hay 2: faltan 2 (<= MAX_PAD_WORDS) -> se acepta y se rellena con ceros
+  // 16 bytes = 4 data words but only 2 are there: 2 missing (<= MAX_PAD_WORDS) -> accepted and padded with zeros
   let r = parseCheat("02210000 00000001\nE2210900 00000010\n11223344 55667788");
   assert.equal(r.ok, true);
   assert.equal(r.warnings[0].code, W.PAYLOAD_PADDED);
   assert.equal(r.warnings[0].line, 2);
   assert.equal(r.code, "02210000+00000001+E2210900+00000010+11223344+55667788+00000000+00000000");
   assert.equal(parseCheat(r.code).warnings.length, 0, "el resultado ya es completo");
-  // faltan más de MAX_PAD_WORDS: error
+  // more than MAX_PAD_WORDS missing: error
   assert.equal(MAX_PAD_WORDS, 4);
   r = parseCheat("E2210900 00000020 11223344 55667788"); // 32 bytes = 8 palabras, hay 2
   assert.equal(r.ok, false);
   assert.equal(r.error.code, E.TRUNCATED_PAYLOAD);
   assert.equal(r.error.line, 1);
-  // recuento absurdo (como los 3801079812 bytes de un código real mal formado) sin desbordar
+  // absurd count (like the 3801079812 bytes of a malformed real code) without overflowing
   assert.equal(parseCheat("E23FF100 E28FE004 00000000 00000000").error.code, E.TRUNCATED_PAYLOAD);
 });
 
@@ -131,9 +131,9 @@ test("reference/cheats-sample.json: todos los códigos parsean", () => {
   assert.ok(res.total >= 6, `solo ${res.total} códigos en la muestra`);
   assert.deepEqual(res.failed, []);
   assert.equal(res.ok, res.total);
-  // «Evitar la protección antipiratería» (HGSS): carga E-type 2 palabras más corta de lo anunciado -> aviso, no error
+  // "Evitar la protección antipiratería" (HGSS): E-type payload 2 words shorter than announced -> warning, not an error
   assert.ok(res.warned.some((w) => w.warnings.some((x) => x.code === W.PAYLOAD_PADDED)));
-  // el formato canónico es idempotente
+  // the canonical format is idempotent
   for (const e of res.entries) assert.equal(parseCheat(e.retro).code, e.retro);
   console.log(`# cheats-sample.json: ${res.ok}/${res.total} parsean`);
 });
