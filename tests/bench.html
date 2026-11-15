@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>melonDS WASM · banco de rendimiento (Fase 9)</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root { color-scheme: dark; }
+      body { font-family: system-ui, sans-serif; margin: 0; background: #111; color: #eee; display: grid; grid-template-columns: 21rem 1fr; min-height: 100vh; }
+      aside { padding: 1rem; background: #181a1f; border-right: 1px solid #2b2f37; overflow-y: auto; font-size: .9rem; position: sticky; top: 0; height: 100vh; box-sizing: border-box; }
+      h1 { font-size: 1.05rem; margin: 0 0 .5rem; }
+      fieldset { border: 1px solid #2b2f37; border-radius: .4rem; margin: 0 0 .8rem; padding: .5rem .7rem; }
+      legend { color: #9da7b3; padding: 0 .3rem; }
+      label { display: block; margin: .35rem 0; }
+      select, input[type=number] { width: 100%; box-sizing: border-box; }
+      button { padding: .35rem; margin-top: .3rem; width: 100%; }
+      .hint { color: #9da7b3; font-size: .78rem; margin: .4rem 0 0; }
+      main { display: grid; grid-template-rows: auto auto auto 1fr; min-width: 0; padding: .8rem 1rem; gap: .5rem; }
+      #stage { display: grid; place-items: start center; background: #050505; min-height: 40vh; }
+      #screen { image-rendering: pixelated; background: #000; outline: 1px solid #333; }
+      #msg { color: #ffa657; white-space: pre-wrap; min-height: 1rem; }
+      #msg.err { color: #ff7b72; }
+      #s-info { color: #9da7b3; font: .8rem ui-monospace, monospace; }
+      table { border-collapse: collapse; font: .8rem ui-monospace, monospace; }
+      th, td { border: 1px solid #2b2f37; padding: .2rem .5rem; text-align: right; }
+      th { color: #9da7b3; }
+      td:first-child, th:first-child { text-align: left; }
+      #out { white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; background: #0d0f12; border: 1px solid #2b2f37; padding: .6rem; margin: 0; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>melonDS WASM · Fase 9</h1>
+      <p class="hint">Banco de rendimiento con el mismo protocolo que el botón «Medir rendimiento» de la demo. La ROM se queda en esta pestaña: no se sube a ningún sitio. Pestaña visible y en primer plano para que <code>requestAnimationFrame</code> no se frene.</p>
+      <fieldset>
+        <legend>ROM y motor (al cargar)</legend>
+        <input id="rom" type="file" accept=".nds,.srl" />
+        <label><input id="threaded" type="checkbox" checked /> Renderizador 3D con hilos</label>
+        <label><input id="canvas2d" type="checkbox" /> Forzar Canvas2D</label>
+        <label>Latencia objetivo (ms) <input id="latency" type="number" min="30" max="250" step="10" value="80" /></label>
+      </fieldset>
+      <fieldset>
+        <legend>Medición</legend>
+        <label>Velocidad
+          <select id="speed">
+            <option value="all">todas (1 / 1,5 / 2 / sin límite)</option>
+            <option value="1">1x</option>
+            <option value="1.5">1,5x</option>
+            <option value="2">2x</option>
+            <option value="0">Sin límite</option>
+          </select>
+        </label>
+        <label>Segundos por configuración
+          <select id="secs">
+            <option value="10">10 s</option>
+            <option value="20" selected>20 s</option>
+            <option value="30">30 s</option>
+            <option value="60">60 s</option>
+          </select>
+        </label>
+        <label>audioDynamicRate
+          <select id="drc">
+            <option value="always">always (por defecto)</option>
+            <option value="ff">ff (solo avance rápido)</option>
+            <option value="off">off</option>
+          </select>
+        </label>
+        <label><input id="synthetic" type="checkbox" /> Provocar «CPU justa» (bloquea el productor ~14 %: el DRC debe evitar los cortes)</label>
+        <label><input id="oldBehavior" type="checkbox" /> Forzar comportamiento antiguo (A/B de las optimizaciones del bucle, Fase 9b)</label>
+        <label><input id="profileLoop" type="checkbox" /> Perfilar el bucle del worker (core / publish / audio / saves / yield / wait)</label>
+        <button id="measure" disabled>Medir</button>
+        <button id="drcCompare" disabled>Comparar DRC a 1x (always vs off)</button>
+        <button id="clear">Limpiar tabla</button>
+        <button id="download" disabled>Descargar JSON</button>
+        <p class="hint">«Comparar DRC» mide a 1x con CPU justa sintética en modo always, luego off y luego always con la CPU a tiempo: los underruns deben ser 0 con always y &gt;0 con off (decisión 0.0 #4).</p>
+      </fieldset>
+    </aside>
+    <main>
+      <div id="stage"><canvas id="screen" width="256" height="384"></canvas></div>
+      <div id="msg"></div>
+      <div id="s-info"></div>
+      <table>
+        <thead>
+          <tr><th>Configuración</th><th>fps</th><th>ms/fotograma</th><th>dibujo fps</th><th>búfer ms</th><th>underruns</th><th>DRC</th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <pre id="out"></pre>
+    </main>
+    <script type="module">
+      import { attachBenchPage } from "../js/bench.js";
+      attachBenchPage(document);
+    </script>
+  </body>
+</html>
