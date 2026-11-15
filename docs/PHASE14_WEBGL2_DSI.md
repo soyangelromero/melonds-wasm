@@ -67,7 +67,7 @@ Hechos que importan para esta fase:
    `js/renderer.js:58-64` rechaza un `OffscreenCanvas` con `NO_CANVAS`, y el fotograma se transporta por
    un anillo `SharedArrayBuffer` con triple buffer (`tests/PHASE3_REPORT.md:36-37`). El requisito está
    escrito en la fase 3: «`captureStream()` se pueda hacer sobre el canvas visible del hilo principal (no
-   sobre un `OffscreenCanvas` transferido)», `PROMPTS.md:166-168`. De ahí cuelgan la captura de pantalla
+   sobre un `OffscreenCanvas` transferido)». De ahí cuelgan la captura de pantalla
    (`js/melonds.js:308-315`) y el multijugador WebRTC (`adapters/netplay-host.js:4-6`, `:88-92`).
 5. **`captureStream` y el aislamiento ya están resueltos**: el port exige `crossOriginIsolated` y
    `SharedArrayBuffer` (`js/player.js:28-30`; las cabeceras COOP/COEP se documentan en
@@ -142,7 +142,7 @@ Serían **tres cambios**, no un flag:
 | A2 | El renderer GL está desactivado en el build | `scripts/build-core.sh:34-36` | Ni siquiera se compila la ruta GL |
 | A3 | El host rechaza `SET_HW_RENDER` | `core/host/host.cpp:178-181` | Falta todo el puente host↔GL |
 | A4 | Emscripten necesita `OFFSCREENCANVAS_SUPPORT` (+ variantes WebGL2) y no está activado | `scripts/build-host.sh:21-42`; docs de Emscripten `OFFSCREENCANVAS_SUPPORT` | Cambio de flags y de gestión de canvas |
-| A5 | `captureStream`/WebRTC dependen del canvas visible del hilo principal | `js/renderer.js:58-64`; `PROMPTS.md:166-168`; `adapters/netplay-host.js:88-92` | Hay que conservar un canvas del hilo principal o copiar por `ImageBitmap` |
+| A5 | `captureStream`/WebRTC dependen del canvas visible del hilo principal | `js/renderer.js:58-64`; `adapters/netplay-host.js:88-92` | Hay que conservar un canvas del hilo principal o copiar por `ImageBitmap` |
 | A6 | Soporte de navegador: `OffscreenCanvas` en Safari/iOS solo desde 17 (16.2-16.6 parcial) | <https://caniuse.com/offscreencanvas> | El port presume de móvil; habría que mantener la ruta actual para WebKit antiguo |
 | A7 | WebGPU no es atajo: el compute de melonDS es `#version 430 core` y WebGPU es otra API; Safari 26+ parcial | `render/opengl.cpp:180-181`; <https://caniuse.com/webgpu> | Sería otro port, más grande que el de GLES |
 | A8 | Las pruebas de navegador del repo corren con WebGL de software (SwiftShader) | `tests/BENCH.md:9`; `tests/PHASE9_REPORT.md:311-313` | Un renderer GL nuevo no se podría validar de verdad en CI/headless |
@@ -414,7 +414,7 @@ y la red.
 
 - Port: `js/renderer.js`, `js/player.js`, `js/emu-worker.js`, `js/melonds.js`, `js/saves-core.js`,
   `adapters/netplay-host.js`, `core/host/host.cpp`, `core/host/saves.cpp`, `scripts/build-core.sh`,
-  `scripts/build-host.sh`, `API_CONTRACT.md`, `PROMPTS.md`, `README.md`.
+  `scripts/build-host.sh`, `API_CONTRACT.md`, `README.md`.
 - Informes previos: `tests/BENCH.md` (§5), `tests/PHASE3_REPORT.md`, `tests/PHASE9_REPORT.md` (§6),
   `tests/DEVIATIONS.md`, y `PROGRESO.md` (§2-§7, §10).
 - melonDS DS v1.4.0: `third_party/melonds-ds/CMakeLists.txt`,

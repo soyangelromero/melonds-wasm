@@ -1,7 +1,6 @@
 # Plan: port de melonDS a WebAssembly ("melonds-wasm")
 
-Este documento es el plan maestro. Los prompts para DeepSeek están en `PROMPTS.md` y el contrato de API en
-`API_CONTRACT.md`. Los archivos de `reference/` son extractos de la web app actual para dar contexto.
+Este documento es el plan maestro. El contrato de API está en `API_CONTRACT.md`. Los archivos de `reference/` son extractos de la web app actual para dar contexto.
 
 > Todo lo marcado **[VERIFICAR]** es una suposición que el implementador debe comprobar en el código real antes de
 > apoyarse en ella. No se ha compilado nada de esto todavía.
@@ -60,7 +59,7 @@ OpenGL de escritorio. El renderizador WebGL2 y DSi quedan como fases opcionales.
 
 ```
 port melonds/
-├─ PLAN.md  API_CONTRACT.md  PROMPTS.md  README.md   (README lo escribe la Fase 0)
+├─ PLAN.md  API_CONTRACT.md  README.md   (README lo escribe la Fase 0)
 ├─ reference/                 extractos de la web app (solo lectura)
 ├─ third_party/melonds-ds/    submódulo git de JesseTG/melonds-ds, fijado a la etiqueta v1.4.0 (commit f394adba)
 ├─ core/                      enlace C++ ("glue"): CMakeLists.txt, src/*.cpp, include/*.h
@@ -86,7 +85,7 @@ Decisiones clave:
   (`ENABLE_THREADED_RENDERER` de melonDS). El hilo principal solo pinta y gestiona la entrada. En la variante sin hilos
   (`-st`) no hay worker ni `SharedArrayBuffer`: el bucle corre en el hilo principal con un temporizador de alta resolución,
   `getFrame()` se lee directamente y `getStats().threads` es `false`.
-- **Vídeo (corregido tras `REVIEW.md`, verificado en `src/libretro/render/software.cpp`):** el núcleo **ya compone** las dos pantallas
+- **Vídeo (corregido tras la revisión del plan, verificado en `src/libretro/render/software.cpp`):** el núcleo **ya compone** las dos pantallas
   según el diseño elegido y entrega **un único fotograma** por `retro_video_refresh`, en formato **XRGB8888**, con el cursor
   dibujado si procede. Por tanto: el worker ejecuta `retro_run`; el callback de vídeo copia el fotograma compuesto a un buffer
   circular compartido; el hilo principal dibuja **una sola textura** con WebGL2 (conversión XRGB→RGBA en el shader, escalado y filtro
@@ -124,7 +123,7 @@ Decisiones clave:
 - Toolchain: `emsdk` en Docker (`emscripten/emsdk`) o WSL. La web app actual usa EmulatorJS con emsdk 3.1.74; para esto
   conviene una versión reciente (≥ 3.1.74; probar 4.x). C++17 es suficiente según el núcleo libretro 1.4.0; melonDS
   v1.4.0 usa C++17 según su CMake; los submódulos del motor pueden pedir más **[VERIFICAR]**.
-- Opciones CMake reales de melonDS DS v1.4.0 (corregidas tras `REVIEW.md`; `HAVE_*` son variables que calcula
+- Opciones CMake reales de melonDS DS v1.4.0 (corregidas tras la revisión del plan; `HAVE_*` son variables que calcula
   `cmake/ConfigureFeatures.cmake`, no opciones): `ENABLE_JIT=OFF`, `ENABLE_THREADED_RENDERER=ON`, `ENABLE_NETWORKING=OFF` (libslirp),
   `ENABLE_OPENGL=OFF`, `ENABLE_COMPUTE_RENDERER=OFF`, `ENABLE_DYNAMIC=OFF` y `ENABLE_EGL=OFF` (candidatos), `TRACY_ENABLE=OFF`,
   `BUILD_AS_SHARED_LIBRARY=OFF`, `BUILD_TESTING=OFF`. Usa **C++17**. Necesita **Python** durante la configuración
@@ -144,7 +143,7 @@ Decisiones clave:
 - El servidor que sirva la demo debe enviar `Cross-Origin-Opener-Policy: same-origin` y
   `Cross-Origin-Embedder-Policy: require-corp` (la web app ya lo hace en `server.mjs`).
 
-## 6. Fases (resumen; los prompts completos están en `PROMPTS.md`)
+## 6. Fases (resumen)
 
 | Fase | Entregable | Criterio de aceptación |
 |---|---|---|
@@ -212,9 +211,9 @@ solo cambia lo que hay detrás. Hay que reescribir a mano lo que libretro da hec
 trucos (`AREngine`), diseño de pantallas y remuestreo de audio. Criterio para decidir: documentar en `tests/BUILD_REPORT.md` qué
 bloqueó la Fase 1 antes de cambiar.
 
-## 10 bis. Decisiones tras las revisiones (`REVIEW.md` y `REVIEW-2.md`)
+## 10 bis. Decisiones tras las revisiones del plan
 
-`REVIEW.md` y `REVIEW-2.md` (revisiones hechas por otro agente contra el código real de v1.4.0) se tomaron como correctas tras
+Las revisiones del plan (hechas contra el código real de v1.4.0) se tomaron como correctas tras
 comprobar por separado el vídeo compuesto (`software.cpp`), el índice de trucos por posición (`core.cpp`), el táctil en el
 núcleo (`cursor.cpp`) y los nombres de las opciones CMake (`ConfigureFeatures.cmake`). Decisiones:
 

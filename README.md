@@ -3,8 +3,8 @@
 A port of **melonDS DS v1.4.0** (libretro core) to WebAssembly with Emscripten, with its own minimal libretro host and a
 JavaScript library that has no runtime dependencies.
 
-The master plan is in `PLAN.md`, the API contract in `API_CONTRACT.md` and the per-phase prompts in `PROMPTS.md`.
-Note: the design documents (`PLAN.md`, `PROMPTS.md`, `REVIEW*.md`, `tests/*REPORT*.md`, `tests/BENCH.md`, …) are written in
+The master plan is in `PLAN.md` and the API contract in `API_CONTRACT.md`.
+Note: the design documents (`PLAN.md`, `tests/*REPORT*.md`, `tests/BENCH.md`, …) are written in
 Spanish; the code, comments and this README are in English.
 
 ## Legal notice

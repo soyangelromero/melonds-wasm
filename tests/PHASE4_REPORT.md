@@ -84,7 +84,7 @@ Resultados: stdout, `tests/artifacts/phase4-browser-results.json` y `tests/artif
 | I | **181 s (3 min) a 1x** | `audioBufferMs`: **media 81,5 ms, desv. 6,0, mín 68,4, máx 96,3**; tendencia **0,225 ms/min** (sin deriva); **0 underruns, 0 overruns, 0 recortes, 0 aceleraciones**; salto máximo entre muestras 0,0149 (< pendiente natural del tono ×1,5); RMS por ventanas de 10 s constante en 0,1349 |
 | Z | Consola | **sin errores** de consola, de página ni peticiones fallidas (0 avisos propios) |
 
-Duración real de la corrida larga: **181 s (≈ 3 min)**, no los 5 minutos del criterio del PROMPT; el resto de secciones suman ≈ 2,5 min más con el mismo contexto.
+Duración real de la corrida larga: **181 s (≈ 3 min)**, no los 5 minutos del criterio de la fase; el resto de secciones suman ≈ 2,5 min más con el mismo contexto.
 
 ## No verificado [VERIFICAR]
 
