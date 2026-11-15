@@ -15,8 +15,7 @@ BIOS or firmware, and it only works with legitimate copies that you provide your
 a free BIOS (FreeBIOS) and a firmware generated in the browser.
 
 This port was developed **with the help of AI models (Claude and DeepSeek)** under the author's direction and testing. It is
-a recompilation of the open-source melonDS, **not a decompilation**. It has not had an independent human audit, so test it
-with your own games.
+a recompilation of the open-source melonDS.
 
 ## Quick start
 
