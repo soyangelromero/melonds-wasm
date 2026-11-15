@@ -14,6 +14,23 @@ ROM, BIOS, firmware ni ningún otro material con copyright de Nintendo: funciona
 que el usuario aporte desde su propio equipo (nunca se suben a ningún sitio). La licencia del código es GPL-3.0
 (ver `LICENSE`); la procedencia de las dependencias enlazadas en el binario está en `THIRD_PARTY.md`.
 
+## Cómo se hizo (transparencia sobre el uso de IA)
+
+Este port se ha desarrollado **con ayuda de modelos de inteligencia artificial**: **Claude** (Anthropic) y **DeepSeek**.
+Lo han escrito y revisado asistentes de IA bajo la dirección y las pruebas del autor (que es quien lo publica y se
+responsabiliza del repositorio); el código no ha tenido una auditoría humana independiente. Sé crítico con él.
+
+Qué es y qué no es, para que no haya malentendidos:
+
+- **No es una descompilación.** El código de melonDS es abierto (GPL-3.0). Aquí se **recompila** a WebAssembly con Emscripten
+  (núcleo libretro de melonDS DS v1.4.0, con 7 parches propios en `core/patches/`) y se le añade un anfitrión mínimo en C++
+  y una biblioteca JavaScript escritos para este proyecto.
+- **No contiene ni se ha obtenido de material de Nintendo**: ni ROM, ni BIOS, ni firmware. La BIOS y el firmware que usa por
+  defecto son libres (FreeBIOS y un firmware generado en el navegador).
+- El trabajo de emulación es de **melonDS y sus autores**; este repositorio solo lo lleva al navegador.
+- Como todo código generado con ayuda de IA, puede tener errores o fallos sutiles: las pruebas automáticas
+  (carpeta `tests/`) cubren lo medible, pero no sustituyen a probarlo con tus propios juegos.
+
 ## Requisitos
 
 - Docker (imagen fijada `emscripten/emsdk:6.0.13`).
