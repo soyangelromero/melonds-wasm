@@ -10,7 +10,7 @@
 
 ## Legal notice
 
-Unofficial hobby project, **not affiliated with Nintendo, Game Freak or The Pokémon Company**. It does not include any ROM,
+Unofficial hobby project, **not affiliated with Nintendo**. It does not include any ROM,
 BIOS or firmware, and it only works with legitimate copies that you provide yourself (nothing is uploaded anywhere). It uses
 a free BIOS (FreeBIOS) and a firmware generated in the browser.
 
