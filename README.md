@@ -5,6 +5,10 @@
 <h1 align="center">melonDS Web</h1>
 
 <p align="center">
+  <b>Español</b> · <a href="README.es.md">Leer este README en español</a>
+</p>
+
+<p align="center">
   <b>Accurate Nintendo DS emulation, entirely in your browser.</b><br>
   Powered by <a href="https://github.com/JesseTG/melonDS-ds">melonDS DS v1.4.0</a> compiled to WebAssembly.
   No plugins, no server-side emulation, no BIOS files required — bring your own ROM.
