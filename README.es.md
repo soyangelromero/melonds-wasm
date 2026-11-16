@@ -221,7 +221,7 @@ los límites conocidos están en [`tests/`](tests) (informes en español).
 
 ## Legal
 
-**Proyecto no oficial.** Sin relación con Nintendo, Game Freak, Creatures Inc. ni The Pokémon Company.
+**Proyecto no oficial.** Sin relación con Nintendo.
 **No incluye ninguna ROM, BIOS, firmware ni partida**; solo funciona con copias que poseas legalmente. No se sube nada:
 tu ROM se queda en el navegador.
 

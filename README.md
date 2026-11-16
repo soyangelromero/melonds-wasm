@@ -205,7 +205,7 @@ Browser tests require Playwright (`npx playwright install chromium`) and some of
 
 ## Legal
 
-**Unofficial hobby project.** Not affiliated with Nintendo, Game Freak, Creatures Inc. or The Pokémon Company.
+**Unofficial hobby project.** Not affiliated with Nintendo.
 It **does not include any ROM, BIOS, firmware or save file**; it only works with copies you legally own. Nothing is uploaded:
 your ROM stays in the browser.
 
