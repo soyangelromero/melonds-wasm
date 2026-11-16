@@ -49,6 +49,12 @@
   No commercial ROM, BIOS or box art is included in this repository.</sub>
 </p>
 
+> **Scope note.** This repository contains the **Nintendo DS WebAssembly port only**. The web app shown in the
+> screenshots is the author's companion demo: it is **not included here** and it is **not required** to use the port.
+> The **GBA** button belongs to that separate web app and opens an mGBA-WASM player, unrelated to this repository.
+> The demo and the adapter in [`demo/`](demo) and [`adapters/`](adapters) show how to integrate the port into **your own**
+> web app; you do not need the companion app for that.
+
 ## Why melonDS Web?
 
 - **Real emulation, in the browser.** The melonDS DS libretro core runs inside a Web Worker compiled to WebAssembly; frames are shared through `SharedArrayBuffer` and presented on a WebGL2 canvas.

@@ -49,6 +49,12 @@
   En este repositorio no hay ninguna ROM, BIOS ni carátula comercial.</sub>
 </p>
 
+> **Nota de alcance.** Este repositorio contiene **solo el port de Nintendo DS a WebAssembly**. La web app que se ve en
+> las capturas es la demo que acompaña al autor: **no está incluida aquí** y **no hace falta** para usar el port.
+> El botón **GBA** pertenece a esa web app aparte y abre un reproductor mGBA-WASM, ajeno a este repositorio.
+> La demo y el adaptador de [`demo/`](demo) y [`adapters/`](adapters) muestran cómo integrar el port en **tu propia**
+> web app; no necesitas la aplicación que acompaña al autor.
+
 ## ¿Por qué melonDS Web?
 
 - **Emulación de verdad, en el navegador.** El núcleo libretro melonDS DS se ejecuta dentro de un Web Worker compilado a
